@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MicroChain Admin — Credential Blockchain</title>
+  <meta name="description"
+    content="Admin interface to manage universities and credential schemas on the permissioned microcredential blockchain.">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- ══════════════════════════════════════════════════════
+     TOAST CONTAINER
+     ══════════════════════════════════════════════════ -->
+  <div id="toast-container"></div>
+
+  <!-- ══════════════════════════════════════════════════════
+     NAVBAR
+     ══════════════════════════════════════════════════ -->
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <div class="brand-icon">⛓️</div>
+      <div>
+        <div class="brand-name">MicroChain</div>
+        <div class="brand-sub">Credential Registry Admin</div>
+      </div>
+    </div>
+    <div class="wallet-area">
+      <span id="role-badge" class="role-badge guest"></span>
+      <div id="wallet-chip" class="wallet-chip">
+        <div class="dot"></div>
+        <span id="wallet-addr"></span>
+      </div>
+      <button id="connect-btn" class="btn btn-primary">
+        <span class="spinner"></span>
+        <span class="btn-label">Connect Wallet</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ══════════════════════════════════════════════════════
+     CONNECT PROMPT (shown before wallet is connected)
+     ══════════════════════════════════════════════════ -->
+  <div id="connect-prompt">
+    <div class="connect-card">
+      <span class="logo">🔐</span>
+      <h1>Connect your wallet</h1>
+      <p>
+        Use this dashboard to manage the permissioned credential blockchain.
+        Connect MetaMask to get started — your role (Owner, University, or Guest)
+        will be detected automatically.
+      </p>
+      <button id="connect-prompt-btn" class="btn btn-primary">
+        <span class="spinner"></span>
+        <span class="btn-label">🦊 Connect MetaMask</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+     CONTRACT ADDRESS SETUP
+     ══════════════════════════════════════════════════ -->
+  <div id="setup-panel">
+    <div class="setup-card">
+      <h2>⚙️ Contract Addresses</h2>
+      <p style="font-size:13px;color:#8b91b0;margin-bottom:18px;">
+        Enter the addresses of the deployed contracts below, then click <strong>Load</strong>.
+        If you have a <code style="font-size:11px;color:#7c5cfc">deploy-config.json</code>
+        in this folder, they'll be filled in automatically.
+      </p>
+      <div class="info-box">
+        💡 Run <code>npx hardhat node</code> in one terminal, then
+        <code>node scripts/deploy-and-save.js</code> in another to deploy locally and
+        generate <code>deploy-config.json</code>.
+      </div>
+      <div class="addr-grid">
+        <div class="form-group">
+          <label for="registry-addr">UniversityRegistry address</label>
+          <input id="registry-addr" class="mono" type="text" placeholder="0x…" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label for="schema-addr">CredentialSchema address</label>
+          <input id="schema-addr" class="mono" type="text" placeholder="0x…" autocomplete="off">
+        </div>
+      </div>
+      <div style="margin-top:18px;">
+        <button id="btn-load-contracts" class="btn btn-primary">
+          <span class="spinner"></span>
+          <span class="btn-label">Load Contracts →</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+     MAIN APP (shown after contracts are loaded)
+     ══════════════════════════════════════════════════ -->
+  <div id="app">
+
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="universities">🏛️ Universities</button>
+      <button class="tab-btn" data-tab="schemas">📋 Credential Types</button>
+    </div>
+
+    <!-- ─── Tab: Universities ─────────────────────────────────────── -->
+    <div id="panel-universities" class="tab-panel active">
+
+      <!-- Add University (owner only) -->
+      <p class="section-title">Authorize New University</p>
+      <div class="card" id="card-authorize">
+        <div class="card-title">
+          <div class="icon purple">🏛️</div>
+          Add Authorized University
+        </div>
+        <p style="font-size:13px;color:#8b91b0;margin-bottom:18px;line-height:1.5;">
+          Only the <strong>contract owner</strong> can authorize universities.
+          Once authorized, the university's wallet address can issue credentials and define degree schemas.
+        </p>
+        <div class="form-row">
+          <div class="form-group" style="flex:2; min-width:220px;">
+            <label for="auth-addr">Ethereum address</label>
+            <input id="auth-addr" class="mono" type="text" placeholder="0x…" autocomplete="off">
+          </div>
+          <div class="form-group" style="flex:2;">
+            <label for="auth-name">University name</label>
+            <input id="auth-name" type="text" placeholder="e.g. Università La Sapienza" autocomplete="off">
+          </div>
+          <div class="form-group" style="flex:0; min-width:auto;">
+            <label>&nbsp;</label>
+            <button id="btn-authorize" class="btn btn-primary">
+              <span class="spinner"></span>
+              <span class="btn-label">✓ Authorize</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Universities list -->
+      <p class="section-title">Registered Universities</p>
+      <div class="card">
+        <div class="list-header">
+          <div class="card-title" style="margin-bottom:0;">
+            <div class="icon teal">📋</div>
+            All Universities
+            <span id="uni-count" class="count-badge">0</span>
+          </div>
+          <button id="btn-refresh-unis" class="btn btn-ghost" style="min-width:auto;padding:7px 14px;">
+            ↻ Refresh
+          </button>
+        </div>
+        <div id="uni-list" class="entity-list">
+          <div class="empty-state"><span class="icon">⏳</span>Loading…</div>
+        </div>
+      </div>
+
+    </div><!-- /panel-universities -->
+
+    <!-- ─── Tab: Credential Types (Schemas) ───────────────────────── -->
+    <div id="panel-schemas" class="tab-panel">
+
+      <!-- Create Schema (university only) -->
+      <p class="section-title">Define New Credential Type</p>
+      <div class="card">
+        <div class="card-title">
+          <div class="icon blue">📝</div>
+          Add Credential Schema
+        </div>
+        <p style="font-size:13px;color:#8b91b0;margin-bottom:18px;line-height:1.5;">
+          Only <strong>authorized universities</strong> can define credential types.
+          A schema is a named template (e.g. "Bachelor in Computer Science") that must
+          be referenced every time a credential is issued.
+        </p>
+        <div class="form-row">
+          <div class="form-group" style="flex:3;">
+            <label for="schema-name">Credential name</label>
+            <input id="schema-name" type="text" placeholder="e.g. Laurea Magistrale in Informatica" autocomplete="off">
+          </div>
+          <div class="form-group" style="flex:1; min-width:130px;">
+            <label for="schema-code">Short code</label>
+            <input id="schema-code" type="text" placeholder="LM_INF" autocomplete="off" maxlength="20"
+              style="text-transform:uppercase;">
+          </div>
+          <div class="form-group" style="flex:0; min-width:auto;">
+            <label>&nbsp;</label>
+            <button id="btn-create-schema" class="btn btn-primary">
+              <span class="spinner"></span>
+              <span class="btn-label">+ Create</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Schemas list -->
+      <p class="section-title">Registered Credential Types</p>
+      <div class="card">
+        <div class="list-header">
+          <div class="card-title" style="margin-bottom:0;">
+            <div class="icon blue">🎓</div>
+            All Credential Types
+            <span id="schema-count" class="count-badge">0</span>
+          </div>
+          <button id="btn-refresh-schemas" class="btn btn-ghost" style="min-width:auto;padding:7px 14px;">
+            ↻ Refresh
+          </button>
+        </div>
+        <div id="schema-list" class="entity-list">
+          <div class="empty-state"><span class="icon">⏳</span>Loading…</div>
+        </div>
+      </div>
+
+    </div><!-- /panel-schemas -->
+
+  </div><!-- /app -->
+
+  <!-- ethers.js v6 from CDN (jsDelivr — no SRI hash needed) -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+  <script src="app.js"></script>
+
+</body>
+
+</html>
