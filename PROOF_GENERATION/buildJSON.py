@@ -190,7 +190,7 @@ if __name__ == '__main__':
         "maxGrade":        110,
         "gpaX100":         2951,
         "maxGpaX100":      3000,
-        "salt":            "a3f8c2e1b7d94"
+        "salt":            "a3f8c2e1b7d94f6a8c3b2e9d7f4a1b6c5e8d3f2a1b4c9e7d6f3a2b1c8e5d4f7"
     }
 
     result = build(degree)
