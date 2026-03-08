@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>ZKP Laurea</title>
+</head>
+<body>
+
+  <form action="/generate-proof" method="post" enctype="multipart/form-data">
+
+    <input type="file" name="degree" accept=".json" required />
+    <br><br>
+
+    <fieldset>
+      <legend>Cosa vuoi dimostrare?</legend>
+      <label><input type="radio" name="claim" value="voto" onchange="showField(this.value)" required /> Voto superiore ad una certa soglia</label><br>
+      <label><input type="radio" name="claim" value="media" onchange="showField(this.value)" /> Media superiore ad una certa soglia</label><br>
+      <label><input type="radio" name="claim" value="eqf" onchange="showField(this.value)" /> Possesso di un certo titolo di studio</label><br>
+      <label><input type="radio" name="claim" value="isced" onchange="showField(this.value)" /> Possesso di un titolo di studio inerente una certo campo</label>
+    </fieldset>
+    <br>
+
+    <div id="field-voto" style="display:none">
+      <label>Soglia voto: <input type="number" name="soglia_voto" min="18" max="110" /></label>
+    </div>
+
+    <div id="field-media" style="display:none">
+      <label>Soglia media: <input type="number" name="soglia_media" min="18" max="30" step="0.01" /></label>
+    </div>
+
+    <div id="field-eqf" style="display:none">
+      <label>Livello EQF: <input type="number" name="soglia_eqf" min="1" max="8" /></label>
+    </div>
+
+    <div id="field-isced" style="display:none">
+      <label>Codice ISCED: <input type="text" name="codice_isced" placeholder="es. 613" /></label>
+    </div>
+
+    <br>
+    <button type="submit">Invia</button>
+
+  </form>
+
+  <script>
+    function showField(value) {
+      var ids = ['voto', 'media', 'eqf', 'isced'];
+      ids.forEach(function(id) {
+        document.getElementById('field-' + id).style.display = 'none';
+      });
+      document.getElementById('field-' + value).style.display = 'block';
+    }
+  </script>
+
+</body>
+</html>

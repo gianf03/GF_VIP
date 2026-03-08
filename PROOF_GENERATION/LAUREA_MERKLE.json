@@ -1,0 +1,65 @@
+{
+  "version": "1.0",
+  "issuedAt": 20250925,
+  "studentId": "NF22500126",
+  "fullName": "Gianfranco Vitiello",
+  "universityName": "Università degli Studi di Salerno",
+  "universitySchac": "unisa.it",
+  "universityCountry": "IT",
+  "degreeName": "Laurea in Informatica",
+  "iscedBroad": 6,
+  "iscedDetailed": 613,
+  "EQFlevel": 7,
+  "language": "IT",
+  "finalGrade": 110,
+  "honors": 0,
+  "maxGrade": 110,
+  "gpaX100": 2951,
+  "maxGpaX100": 3000,
+  "salt": "a3f8c2e1b7d94",
+  "merkleTree": {
+    "root": "0x751d0c1035fc2ba64e1193cecb869c75397e9a8930a16fc21c111fd5821b547d",
+    "leaves": [
+      "0x93a3bec6032a5f093e2417362869eadbe7d3f0eb08bde0a6cae394c3af1e7c1c",
+      "0x9b7f30b8a816e2c35fca57feb0a7f591c99905de832064c2ba4b048abf2cdb59",
+      "0xa29f11184d89d8a8ad6d1b3254c55c8a3f83c6afefbc6de169342d46a52013c9",
+      "0xa74cad53599822d735da7f7c7caf783ed3c2f12c96fe073ddf343e2182f8ce89",
+      "0x3774b2de0379731895f15bd44a0349b4fc773471194c390cb90183b46c5b4ef8",
+      "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "0x0000000000000000000000000000000000000000000000000000000000000000"
+    ],
+    "pathGrade": {
+      "index": 1,
+      "siblings": [
+        "0x93a3bec6032a5f093e2417362869eadbe7d3f0eb08bde0a6cae394c3af1e7c1c",
+        "0x99032a08788a86daca8c38f069b5bdc1e48511fb1561c7a1d317949ba477874f",
+        "0xee65d326ab4dd46ae2e098a5a320df56160fde7a1015f556e238545ce91045ac"
+      ]
+    },
+    "pathGPA": {
+      "index": 2,
+      "siblings": [
+        "0xa74cad53599822d735da7f7c7caf783ed3c2f12c96fe073ddf343e2182f8ce89",
+        "0x58f9d62d6cb11f81c6ef98fd88fd0f783f4de9e79a10d97463610341958a3173",
+        "0xee65d326ab4dd46ae2e098a5a320df56160fde7a1015f556e238545ce91045ac"
+      ]
+    },
+    "pathISCED": {
+      "index": 3,
+      "siblings": [
+        "0xa29f11184d89d8a8ad6d1b3254c55c8a3f83c6afefbc6de169342d46a52013c9",
+        "0x58f9d62d6cb11f81c6ef98fd88fd0f783f4de9e79a10d97463610341958a3173",
+        "0xee65d326ab4dd46ae2e098a5a320df56160fde7a1015f556e238545ce91045ac"
+      ]
+    },
+    "pathEQF": {
+      "index": 4,
+      "siblings": [
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5",
+        "0xf801f14a9ae427e62a5ac4787951a930c8988834f98f45fb43ee1b1523e11eac"
+      ]
+    }
+  }
+}
