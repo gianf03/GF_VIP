@@ -1,32 +1,16 @@
-"""
-build_merkle.py — Costruisce il Merkle Tree del titolo di studio.
-
-Struttura foglie:
-  F0 → keccak256(campi non numerici + numerici di contesto)
-  F1 → keccak256(finalGrade, salt)
-  F2 → keccak256(gpaX100, salt)
-  F3 → keccak256(iscedDetailed, salt)
-  F4 → keccak256(EQFlevel, salt)
-  F5, F6, F7 → padding (hash di zeri)
-"""
-
 import json
+import os
+import sys
 from eth_hash.auto import keccak
 
 # ── Keccak256 ─────────────────────────────────────────────────────────────────
-
-def keccak256(data: bytes) -> str:
-    return '0x' + keccak(data).hex()
-
 def keccak256_combine(left: str, right: str) -> str:
     """Combina due hash figli per produrre il nodo padre."""
     left_bytes  = bytes.fromhex(left[2:])
     right_bytes = bytes.fromhex(right[2:])
-    return keccak256(left_bytes + right_bytes)
+    return '0x' + keccak(left_bytes + right_bytes).hex()
 
 # ── Foglie ────────────────────────────────────────────────────────────────────
-
-PADDING = '0x' + '00' * 32
 
 def leaf_context(degree: dict) -> str:
     """
@@ -52,27 +36,34 @@ def leaf_context(degree: dict) -> str:
         str(degree['maxGpaX100']),
     ]
     data = '|'.join(fields).encode('utf-8')
-    return keccak256(data)
+    return '0x' + keccak(data).hex()
 
 def leaf_grade(degree: dict) -> str:
-    """F1 — hash(finalGrade, salt)"""
-    data = f"{degree['finalGrade']}|{degree['salt']}".encode('utf-8')
-    return keccak256(data)
+    import struct
+    grade_bytes = struct.pack('>I', degree['finalGrade']) 
+    salt_bytes  = bytes.fromhex(degree['salt'])            
+    return '0x'+ keccak(grade_bytes + salt_bytes).hex()             
 
 def leaf_gpa(degree: dict) -> str:
-    """F2 — hash(gpaX100, salt)"""
-    data = f"{degree['gpaX100']}|{degree['salt']}".encode('utf-8')
-    return keccak256(data)
+    import struct
+    val_bytes  = struct.pack('>I', degree['gpaX100'])
+    salt_bytes = bytes.fromhex(degree['salt'])
+    return '0x'+ keccak(val_bytes + salt_bytes).hex()
 
 def leaf_isced(degree: dict) -> str:
-    """F3 — hash(iscedDetailed, salt)"""
-    data = f"{degree['iscedDetailed']}|{degree['salt']}".encode('utf-8')
-    return keccak256(data)
+    import struct
+    val_bytes  = struct.pack('>I', degree['iscedDetailed'])
+    salt_bytes = bytes.fromhex(degree['salt'])
+    return '0x' + keccak(val_bytes + salt_bytes).hex()
 
 def leaf_eqf(degree: dict) -> str:
-    """F4 — hash(EQFlevel, salt)"""
-    data = f"{degree['EQFlevel']}|{degree['salt']}".encode('utf-8')
-    return keccak256(data)
+    import struct
+    val_bytes  = struct.pack('>I', degree['EQFlevel'])
+    salt_bytes = bytes.fromhex(degree['salt'])
+    return '0x' + keccak(val_bytes + salt_bytes).hex()
+
+"""F5, F6, F7 - 32 byte con valore 0 """
+PADDING = '0x' + '00' * 32
 
 # ── Merkle Tree ───────────────────────────────────────────────────────────────
 
@@ -138,11 +129,17 @@ def get_path(tree: dict, index: int) -> dict:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+"""istruzioni per invocare: source venv/bin/activate
+                            python3 buildJSON.py <nomeFile> """
+
 def build(degree: dict) -> dict:
-    """
-    Prende il dict del titolo di studio e restituisce
-    il JSON completo con merkleTree aggiunto.
-    """
+
+    # Genera e aggiunge il salt (28 byte) se non già presente
+    if 'salt' in degree:
+        raise ValueError("Il file JSON non deve contenere il campo 'salt': verrà generato automaticamente.")
+    
+    """salt di 28 byte"""
+    degree['salt'] = os.urandom(28).hex()  
 
     # Calcola le 5 foglie reali + 3 padding
     leaves = [
@@ -171,32 +168,28 @@ def build(degree: dict) -> dict:
 
 
 if __name__ == '__main__':
-    # Esempio di utilizzo
-    degree = {
-        "version":         "1.0",
-        "issuedAt":        20250925,
-        "studentId":       "NF22500126",
-        "fullName":        "Gianfranco Vitiello",
-        "universityName":  "Università degli Studi di Salerno",
-        "universitySchac": "unisa.it",
-        "universityCountry": "IT",
-        "degreeName":      "Laurea in Informatica",
-        "iscedBroad":      6,
-        "iscedDetailed":   613,
-        "EQFlevel":        7,
-        "language":        "IT",
-        "finalGrade":      110,
-        "honors":          0,
-        "maxGrade":        110,
-        "gpaX100":         2951,
-        "maxGpaX100":      3000,
-        "salt":            "a3f8c2e1b7d94f6a8c3b2e9d7f4a1b6c5e8d3f2a1b4c9e7d6f3a2b1c8e5d4f7"
-    }
+    if len(sys.argv) != 2:
+        print("Uso: python build_merkle.py <input.json>")
+        sys.exit(1)
+
+    input_path = sys.argv[1]
+
+    if not os.path.exists(input_path):
+        print(f"Errore: file '{input_path}' non trovato.")
+        sys.exit(1)
+
+    with open(input_path, 'r', encoding='utf-8') as f:
+        degree = json.load(f)
 
     result = build(degree)
 
-    output_path = 'LAUREA_MERKLE.json'
+    # Output: stesso nome del file input con suffisso _MERKLE
+    base = os.path.splitext(input_path)[0]
+    output_path = f"{base}_MERKLE.json"
+
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(result, f, indent=2, ensure_ascii=False)
 
-    print(f'File salvato: {output_path}')
+    print(f"Salt generato: {result['salt']}")
+    print(f"Root:          {result['merkleTree']['root']}")
+    print(f"File salvato:  {output_path}")

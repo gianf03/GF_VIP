@@ -1,0 +1,19 @@
+{
+  "version": "1.0",
+  "issuedAt": 20250925,
+  "studentId": "NF22500126",
+  "fullName": "Gianfranco Vitiello",
+  "universityName": "Università degli Studi di Salerno",
+  "universitySchac": "unisa.it",
+  "universityCountry": "IT",
+  "degreeName": "Laurea in Informatica",
+  "iscedBroad": 6,
+  "iscedDetailed": 613,
+  "EQFlevel": 7,
+  "language": "IT",
+  "finalGrade": 110,
+  "honors": 0,
+  "maxGrade": 110,
+  "gpaX100": 2951,
+  "maxGpaX100": 3000
+}
