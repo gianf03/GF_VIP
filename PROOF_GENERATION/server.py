@@ -133,7 +133,7 @@ def generate_proof():
         zok_args = build_args(
             value     = degree[valueName],
             salt_hex  = degree['salt'],
-            parametro = soglia,
+            parametro = parametro,
             mt        = mt,
             path      = mt[pathName]
         )
