@@ -1,0 +1,108 @@
+import "hashes/keccak/256bit" as keccak256;
+import "utils/casts/u32_to_bits" as u32_to_bits;
+import "utils/casts/u8_from_bits" as u8_from_bits;
+import "utils/casts/u8_to_bits" as u8_to_bits;
+import "utils/casts/u32_from_bits" as u32_from_bits;
+
+// Prende un u32 e lo trasforma in quattro u8
+def u32_to_bytes(u32 value) -> u8[4] {
+
+    bool[32] bits = u32_to_bits(value);
+
+    u8 byte0 = u8_from_bits(bits[0..8]); 
+    u8 byte1 = u8_from_bits(bits[8..16]); 
+    u8 byte2 = u8_from_bits(bits[16..24]); 
+    u8 byte3 = u8_from_bits(bits[24..32]);
+
+    return [byte0, byte1, byte2, byte3];
+}
+
+// Prende 32 byte e li trasforma in otto u32
+def bytes_to_u32x8(u8[32] arr) -> u32[8] {
+
+    u32[8] mut result = [0; 8];
+
+    for u32 i in 0..8 {
+        bool[32] bits = [...u8_to_bits(arr[i*4]), ...u8_to_bits(arr[i*4+1]), ...u8_to_bits(arr[i*4+2]), ...u8_to_bits(arr[i*4+3])];
+
+        result[i] = u32_from_bits(bits);
+    }
+
+    return result;
+}
+
+// Calcola l'hash della foglia: keccak256(voto, salt)
+def calcola_foglia(u32 voto, u32[7] salt) -> u32[8] {
+
+    u8[4] voto_bytes = u32_to_bytes(voto);
+
+    // [4 byte del voto + 28 byte del salt = 32 byte totali]
+    u8[32] mut input = [0; 32];
+
+    input[0] = voto_bytes[0];
+    input[1] = voto_bytes[1];
+    input[2] = voto_bytes[2];
+    input[3] = voto_bytes[3];
+
+    for u32 i in 0..7 {
+        u8[4] sb = u32_to_bytes(salt[i]);
+        input[4 + i*4]     = sb[0];
+        input[4 + i*4 + 1] = sb[1];
+        input[4 + i*4 + 2] = sb[2];
+        input[4 + i*4 + 3] = sb[3];
+    }
+    return bytes_to_u32x8(keccak256(input));
+}
+
+// Combina due nodi del Merkle Tree
+def combina(u32[8] sinistra, u32[8] destra) -> u32[8] {
+    
+    u8[64] mut input = [0; 64];
+    
+    for u32 i in 0..8 {
+        u8[4] bs = u32_to_bytes(sinistra[i]);
+        u8[4] bd = u32_to_bytes(destra[i]);
+        
+        input[i*4]          = bs[0];
+        input[i*4 + 1]      = bs[1];
+        input[i*4 + 2]      = bs[2];
+        input[i*4 + 3]      = bs[3];
+        input[32 + i*4]     = bd[0];
+        input[32 + i*4 + 1] = bd[1];
+        input[32 + i*4 + 2] = bd[2];
+        input[32 + i*4 + 3] = bd[3];
+    }
+    return bytes_to_u32x8(keccak256(input));
+}
+
+// Risale dalla foglia alla radice del Merkle Tree
+def verifica_merkle(u32[8] foglia, u32[3][8] fratelli, bool[3] direzioni) -> u32[8] {
+
+    u32[8] mut nodo = foglia;
+    nodo = if !direzioni[0] { combina(nodo, fratelli[0]) } else { combina(fratelli[0], nodo) };
+    nodo = if !direzioni[1] { combina(nodo, fratelli[1]) } else { combina(fratelli[1], nodo) };
+    nodo = if !direzioni[2] { combina(nodo, fratelli[2]) } else { combina(fratelli[2], nodo) };
+    return nodo;
+}
+
+def main(
+    // Valori privati — solo lo studente li conosce
+    private u32 voto,
+    private u32[7] salt,  //passare un salt di 28 byte
+
+    // Valori pubblici — visibili a tutti
+    u32 soglia,
+    u32[8] radice,
+    u32[3][8] fratelli,
+    bool[3] direzioni
+) {
+    // Il voto deve essere >= soglia
+    assert(voto >= soglia);
+
+    // Calcola la foglia del voto
+    u32[8] foglia = calcola_foglia(voto, salt);
+
+    // Verifica che la radice calcolata coincida con quella on-chain
+    u32[8] radice_calcolata = verifica_merkle(foglia, fratelli, direzioni);
+    assert(radice_calcolata == radice);
+}

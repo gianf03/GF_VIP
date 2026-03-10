@@ -1,0 +1,60 @@
+{
+  "inputs": [
+    {
+      "name": "eqf",
+      "public": false,
+      "type": "u32"
+    },
+    {
+      "name": "salt",
+      "public": false,
+      "type": "array",
+      "components": {
+        "size": 7,
+        "type": "u32"
+      }
+    },
+    {
+      "name": "soglia",
+      "public": true,
+      "type": "u32"
+    },
+    {
+      "name": "radice",
+      "public": true,
+      "type": "array",
+      "components": {
+        "size": 8,
+        "type": "u32"
+      }
+    },
+    {
+      "name": "fratelli",
+      "public": true,
+      "type": "array",
+      "components": {
+        "size": 3,
+        "type": "array",
+        "components": {
+          "size": 8,
+          "type": "u32"
+        }
+      }
+    },
+    {
+      "name": "direzioni",
+      "public": true,
+      "type": "array",
+      "components": {
+        "size": 3,
+        "type": "bool"
+      }
+    }
+  ],
+  "output": {
+    "type": "tuple",
+    "components": {
+      "elements": []
+    }
+  }
+}
