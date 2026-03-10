@@ -17,22 +17,13 @@ node_modules
 ignition/deployments/chain-31337
 
 # Claude dice che i file zokrates sono enormi
-zokrates/*/out
-zokrates/*/out.r1cs
-zokrates/*/out.wtns
-zokrates/*/proving.key
-zokrates/*/witness
-zokrates/*/proof.json
+PROOF_GENERATION/zokrates/*/out
+PROOF_GENERATION/zokrates/*/out.r1cs
+PROOF_GENERATION/zokrates/*/out.wtns
+PROOF_GENERATION/zokrates/*/proving.key
+PROOF_GENERATION/zokrates/*/witness
+PROOF_GENERATION/zokrates/*/proof.json
 
 # Python
-venv/
-.venv/
-env/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-*.egg-info/
-dist/
-build/
+PROOF_GENERATION/venv/
+PROOF_GENERATION/__pycache__/
