@@ -1,13 +1,30 @@
 from flask import Flask, request, jsonify, send_file
-import json
+import json, os
 
-from prepareInput import prepare_grade, prepare_gpa, prepare_eqf, prepare_isced, run_zokrates
+from prepareInput import build_args, run_zokrates
 
 app = Flask(__name__)
 
 @app.route('/')
 def index():
-    return send_file('index.html')
+    return send_file('proofGeneration.html')
+
+
+@app.route('/cleanup', methods=['POST'])
+def cleanup():
+    claim = request.json.get('claim')
+    if not claim:
+        return jsonify({'error': 'claim mancante'}), 400
+
+    for filename in ['witness', 'proof.json', 'out.wtns']:
+        path = os.path.join('zokrates', claim, filename)
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+        except Exception:
+            pass
+
+    return jsonify({'ok': True}), 200  
 
 @app.route('/generate-proof', methods=['POST'])
 def generate_proof():
@@ -94,14 +111,32 @@ def generate_proof():
 
     # 5. Prepara gli input per ZoKrates
     try:
+        mt = degree['merkleTree']
+        pathName = ''
+        valueName = ''
+
+
         if claim == 'grade':
-            zok_args = prepare_grade(degree, parametro)
+            pathName = 'pathGrade'
+            valueName = 'finalGrade'
         elif claim == 'gpa':
-            zok_args = prepare_gpa(degree, parametro)
+            pathName = 'pathGPA'
+            valueName = 'gpaX100'
         elif claim == 'eqf':
-            zok_args = prepare_eqf(degree, parametro)
+            pathName = 'pathEQF'
+            valueName = 'EQFlevel'
         elif claim == 'isced':
-            zok_args = prepare_isced(degree, parametro)
+            pathName = 'pathISCED'
+            valueName = 'iscedDetailed'
+
+
+        zok_args = build_args(
+            value     = degree[valueName],
+            salt_hex  = degree['salt'],
+            parametro = soglia,
+            mt        = mt,
+            path      = mt[pathName]
+        )
     except Exception as e:
         return jsonify({'error': f'Errore preparazione input: {str(e)}'}), 500
 
@@ -113,7 +148,14 @@ def generate_proof():
     except Exception as e:
         return jsonify({'error': f'Errore ZoKrates: {str(e)}'}), 500
 
-    return jsonify({'proof': proof}), 200
+    #return jsonify({'proof': proof}), 200
+    proof_path = os.path.join('zokrates', claim, 'proof.json')
+    return send_file(
+        proof_path,
+        as_attachment=True,
+        download_name=f'proof_{claim}.json',
+        mimetype='application/json'
+    )
 
 
 if __name__ == '__main__':

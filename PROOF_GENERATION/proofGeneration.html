@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>ZKP Laurea</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;800&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="static/styleProofGeneration.css">
+</head>
+<body>
+
+  <!-- Loading overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="zk-spinner">
+      <svg viewBox="0 0 80 80">
+        <circle class="ring2" cx="40" cy="40" r="36"/>
+        <circle class="ring" cx="40" cy="40" r="36"/>
+      </svg>
+      <div class="zk-center">ZK</div>
+    </div>
+
+    <div class="loading-text">
+      <h2>Generazione proof</h2>
+      <p id="loadingStep">Preparazione input...</p>
+    </div>
+
+    <div class="hash-stream">
+      <span id="hashDisplay">0x00000000000000000000000000000000</span>
+    </div>
+
+    <div class="steps">
+      <div class="step active" id="step1"><div class="step-dot"></div>Witness</div>
+      <div class="step" id="step2"><div class="step-dot"></div>Proof</div>
+      <div class="step" id="step3"><div class="step-dot"></div>Verifica</div>
+    </div>
+
+  </div>
+
+  <!-- Main content -->
+  <div class="container">
+    <div class="header">
+      <div clas <button class="cancel-btn" id="cancelBtn">Annulla</button>s="header-badge">Zero Knowledge Proof</div>
+      <h1>Dimostra il tuo<br/><span>titolo di studio</span></h1>
+      <p>Genera una prova crittografica verificabile senza<br/>rivelare i tuoi dati personali.</p>
+    </div>
+
+    <div class="card">
+      <form id="proofForm" enctype="multipart/form-data">
+
+        <!-- File upload -->
+        <div class="upload-area" id="uploadArea">
+          <input type="file" name="degree" accept=".json" required id="fileInput" />
+          <span class="upload-icon">📄</span>
+          <div class="upload-label">
+            <strong style="color:var(--text)">Carica il tuo diploma</strong><br>
+            <span>file .json fornito dalla tua università</span>
+          </div>
+          <div class="upload-filename" id="uploadFilename"></div>
+        </div>
+
+        <!-- Claim selection -->
+        <div class="section-label">Cosa vuoi dimostrare?</div>
+        <div class="options">
+          <label class="option-label">
+            <input type="radio" name="claim" value="grade" onchange="showField(this.value)" required />
+            <div class="option-dot"></div>
+            Voto superiore ad una certa soglia
+          </label>
+          <label class="option-label">
+            <input type="radio" name="claim" value="gpa" onchange="showField(this.value)" />
+            <div class="option-dot"></div>
+            Media superiore ad una certa soglia
+          </label>
+          <label class="option-label">
+            <input type="radio" name="claim" value="eqf" onchange="showField(this.value)" />
+            <div class="option-dot"></div>
+            Possesso di un certo titolo di studio
+          </label>
+          <label class="option-label">
+            <input type="radio" name="claim" value="isced" onchange="showField(this.value)" />
+            <div class="option-dot"></div>
+            Possesso di un titolo inerente un certo campo
+          </label>
+        </div>
+
+        <!-- Dynamic fields -->
+        <div class="dynamic-field">
+          <div id="field-grade" class="field-inner">
+            <label>Soglia voto</label>
+            <input type="number" name="soglia_voto" min="66" max="110" placeholder="es. 100" />
+          </div>
+          <div id="field-gpa" class="field-inner">
+            <label>Soglia media</label>
+            <input type="number" name="soglia_media" min="18" max="30" step="0.01" placeholder="es. 27.5" />
+          </div>
+          <div id="field-eqf" class="field-inner">
+            <label>Livello EQF</label>
+            <input type="number" name="soglia_eqf" min="1" max="8" placeholder="es. 6" />
+          </div>
+          <div id="field-isced" class="field-inner">
+            <label>Codice ISCED</label>
+            <input type="text" name="codice_isced" placeholder="es. 613" />
+          </div>
+        </div>
+
+        <!-- Error message -->
+        <div id="errorMsg" style="display:none; margin-bottom:1rem; padding:0.75rem 1rem;
+             background:rgba(255,80,80,0.08); border:1px solid rgba(255,80,80,0.25);
+             border-radius:8px; font-size:0.72rem; color:#ff6b6b;"></div>
+
+        <button type="submit" class="submit-btn">Genera Proof →</button>
+
+      </form>
+    </div>
+  </div>
+
+  <script>
+    var currentClaim = null;
+    var abortController = null;
+
+    // Show/hide dynamic fields
+    function showField(value) {
+      var ids = ['grade', 'gpa', 'eqf', 'isced'];
+      ids.forEach(function(id) {
+        document.getElementById('field-' + id).classList.remove('active');
+      });
+      document.getElementById('field-' + value).classList.add('active');
+    }
+
+    // File input display
+    document.getElementById('fileInput').addEventListener('change', function() {
+      var area = document.getElementById('uploadArea');
+      var name = document.getElementById('uploadFilename');
+      if (this.files && this.files[0]) {
+        area.classList.add('has-file');
+        name.textContent = '✓ ' + this.files[0].name;
+      }
+    });
+
+    // Cleanup: cancella witness e proof sul server
+    function cleanup(claim) {
+      if (!claim) return Promise.resolve();
+      return fetch('/cleanup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ claim: claim })
+      });
+    }
+
+    // Reset form allo stato iniziale
+    function resetForm() {
+      document.getElementById('proofForm').reset();
+      document.getElementById('uploadArea').classList.remove('has-file');
+      document.getElementById('uploadFilename').textContent = '';
+      var ids = ['grade', 'gpa', 'eqf', 'isced'];
+      ids.forEach(function(id) {
+        document.getElementById('field-' + id).classList.remove('active');
+      });
+      hideError();
+      currentClaim = null;
+    }
+
+    // Loading animation
+    var hashes = [
+      '0xa3f82c1d9e4b0567...','0x1c8e3d72f5a09b4e...',
+      '0x7f2a0e9d3b6c1485...','0x4d9c7e2f8a1b5036...',
+      '0x0b3f6a1e9d2c7845...','0x8e1d4b7f2a0c9356...',
+      '0x5c2f9e3a6b1d0874...','0x3a7d1f0b8e4c2956...',
+    ];
+    var stepMessages = [
+      'Preparazione input...',
+      'Calcolo witness...',
+      'Generazione proof...',
+      'Finalizzazione...'
+    ];
+    var hashIdx = 0, msgIdx = 0;
+    var hashTimer, msgTimer, step2Timer, step3Timer;
+
+    function startLoadingAnimation() {
+      document.getElementById('loadingOverlay').classList.add('active');
+      document.getElementById('step1').className = 'step active';
+      document.getElementById('step2').className = 'step';
+      document.getElementById('step3').className = 'step';
+      document.getElementById('loadingStep').textContent = stepMessages[0];
+
+      hashTimer = setInterval(function() {
+        hashIdx = (hashIdx + 1) % hashes.length;
+        document.getElementById('hashDisplay').textContent = hashes[hashIdx];
+      }, 400);
+
+      msgTimer = setInterval(function() {
+        msgIdx = (msgIdx + 1) % stepMessages.length;
+        document.getElementById('loadingStep').textContent = stepMessages[msgIdx];
+      }, 2200);
+
+      step2Timer = setTimeout(function() {
+        document.getElementById('step1').className = 'step done';
+        document.getElementById('step2').className = 'step active';
+      }, 2200);
+
+      step3Timer = setTimeout(function() {
+        document.getElementById('step2').className = 'step done';
+        document.getElementById('step3').className = 'step active';
+      }, 4400);
+    }
+
+    function stopLoadingAnimation() {
+      clearInterval(hashTimer);
+      clearInterval(msgTimer);
+      clearTimeout(step2Timer);
+      clearTimeout(step3Timer);
+      document.getElementById('loadingOverlay').classList.remove('active');
+    }
+
+    function showError(msg) {
+      var el = document.getElementById('errorMsg');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function hideError() {
+      document.getElementById('errorMsg').style.display = 'none';
+    }
+
+    // Annulla: ferma animazione, cleanup, reset form
+    document.getElementById('cancelBtn').addEventListener('click', function() {
+      if (abortController) abortController.abort();
+      stopLoadingAnimation();
+      cleanup(currentClaim).finally(function() {
+        resetForm();
+      });
+    });
+
+    // Submit via fetch
+    document.getElementById('proofForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      hideError();
+
+      var formData = new FormData(this);
+      currentClaim = formData.get('claim');
+
+      abortController = new AbortController();
+      startLoadingAnimation();
+
+      fetch('/generate-proof', {
+        method: 'POST',
+        body: formData,
+        signal: abortController.signal
+      })
+      .then(function(response) {
+        if (!response.ok) {
+          return response.json().then(function(data) {
+            throw new Error(data.error || 'Errore sconosciuto');
+          });
+        }
+        return response.blob().then(function(blob) {
+          // Scarica il file
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = 'proof_' + currentClaim + '.json';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+
+          // Cleanup e reset
+          return cleanup(currentClaim);
+        });
+      })
+      .catch(function(err) {
+        if (err.name !== 'AbortError') {
+          showError(err.message);
+        }
+      })
+      .finally(function() {
+        stopLoadingAnimation();
+        if (!document.getElementById('errorMsg').style.display || 
+            document.getElementById('errorMsg').style.display === 'none') {
+          resetForm();
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>
