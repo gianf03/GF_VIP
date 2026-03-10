@@ -15,3 +15,11 @@ node_modules
 
 # Hardhat Ignition default folder for deployments against a local node
 ignition/deployments/chain-31337
+
+# Claude dice che i file zokrates sono enormi
+zokrates/*/out
+zokrates/*/out.r1cs
+zokrates/*/out.wtns
+zokrates/*/proving.key
+zokrates/*/witness
+zokrates/*/proof.json
