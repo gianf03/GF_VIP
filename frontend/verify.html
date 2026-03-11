@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MicroChain — Verify ZKP Credential</title>
+  <meta name="description" content="Verify a Zero-Knowledge Proof for an academic credential without revealing private data.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d0f1a;
+      --surface:   #13162a;
+      --surface2:  #1a1d2e;
+      --border:    #2d3154;
+      --text:      #e2e5f1;
+      --muted:     #8b91b0;
+      --accent:    #7c5cfc;
+      --accent2:   #a78bfa;
+      --green:     #22c55e;
+      --red:       #ef4444;
+      --yellow:    #f59e0b;
+      --teal:      #14b8a6;
+      --r:         12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    /* ── Navbar ── */
+    .navbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      height: 64px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .navbar-brand { display: flex; align-items: center; gap: 12px; }
+    .brand-icon { font-size: 22px; }
+    .brand-name { font-size: 16px; font-weight: 700; color: var(--text); }
+    .brand-sub  { font-size: 11px; color: var(--muted); }
+    .nav-link {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 6px 14px;
+      border-radius: 8px;
+      transition: background .15s, color .15s;
+    }
+    .nav-link:hover { background: var(--surface2); color: var(--text); }
+
+    /* ── Main layout ── */
+    .main {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    .page-header {
+      margin-bottom: 40px;
+      text-align: center;
+    }
+    .page-header .badge {
+      display: inline-block;
+      background: linear-gradient(135deg, rgba(124,92,252,.18), rgba(167,139,250,.12));
+      border: 1px solid rgba(124,92,252,.35);
+      color: var(--accent2);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border-radius: 99px;
+      margin-bottom: 20px;
+    }
+    .page-header h1 {
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1.2;
+      background: linear-gradient(135deg, #e2e5f1 0%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 12px;
+    }
+    .page-header p { color: var(--muted); font-size: 14px; line-height: 1.6; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+    .icon.purple { background: rgba(124,92,252,.15); }
+    .icon.teal   { background: rgba(20,184,166,.15); }
+    .icon.blue   { background: rgba(96,165,250,.15); }
+
+    /* ── Form ── */
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 7px;
+    }
+    .form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    input[type="text"], input[type="number"], select, input[type="file"] {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    input[type="text"]:focus, input[type="number"]:focus, select:focus { border-color: var(--accent); }
+    input[type="file"] { cursor: pointer; }
+    select option { background: var(--surface2); }
+
+    .mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+
+    .hint { font-size: 11px; color: var(--muted); margin-top: 5px; }
+
+    /* ── Button ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border: none;
+      border-radius: 9px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #7c5cfc, #a78bfa);
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(124,92,252,.35);
+    }
+    .btn-primary:hover { opacity: .9; transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .btn-full { width: 100%; justify-content: center; padding: 14px; font-size: 15px; }
+
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      display: none;
+      animation: spin .6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn.loading .spinner { display: block; }
+    .btn.loading .btn-label::before { content: ''; }
+
+    /* ── RPC config box ── */
+    .rpc-bar {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 16px;
+      margin-bottom: 20px;
+      font-size: 12px;
+    }
+    .rpc-bar label { color: var(--muted); white-space: nowrap; }
+    .rpc-bar input { flex: 1; background: transparent; border: none; padding: 0; font-family: 'JetBrains Mono', monospace; }
+    .rpc-bar input:focus { outline: none; }
+    .dot-live { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:.4; } }
+
+    /* ── Result panel ── */
+    #result-panel {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      overflow: hidden;
+      margin-top: 24px;
+    }
+
+    .result-header {
+      padding: 24px 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .result-icon {
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      font-size: 26px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .result-icon.valid   { background: rgba(34,197,94,.12); }
+    .result-icon.invalid { background: rgba(239,68,68,.12); }
+    .result-title { font-size: 18px; font-weight: 700; }
+    .result-title.valid   { color: var(--green); }
+    .result-title.invalid { color: var(--red); }
+    .result-sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+
+    .result-body { padding: 24px 28px; }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(45,49,84,.5);
+    }
+    .check-row:last-child { border-bottom: none; }
+    .check-icon { font-size: 18px; width: 24px; text-align: center; flex-shrink: 0; }
+    .check-label { font-size: 13px; font-weight: 500; flex: 1; }
+    .check-detail { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .check-status { font-size: 12px; font-weight: 600; }
+    .check-status.ok  { color: var(--green); }
+    .check-status.bad { color: var(--red); }
+    .check-status.warn { color: var(--yellow); }
+
+    .claims-box {
+      margin-top: 20px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+    }
+    .claims-box h4 { font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .08em; color: var(--muted); margin-bottom: 12px; }
+    .claim-item {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      padding: 6px 0;
+      font-size: 12px;
+    }
+    .claim-item .key { color: var(--muted); }
+    .claim-item .val { font-family: 'JetBrains Mono', monospace; color: var(--text);
+      word-break: break-all; text-align: right; max-width: 70%; }
+
+    /* ── Error box ── */
+    .error-box {
+      display: none;
+      background: rgba(239,68,68,.07);
+      border: 1px solid rgba(239,68,68,.25);
+      border-radius: 9px;
+      padding: 14px 18px;
+      font-size: 13px;
+      color: #ff8080;
+      margin-top: 14px;
+    }
+
+    /* ── Info box ── */
+    .info-box {
+      background: rgba(124,92,252,.07);
+      border: 1px solid rgba(124,92,252,.2);
+      border-radius: 9px;
+      padding: 12px 16px;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+    .info-box code { color: var(--accent2); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+
+    /* ── Divider ── */
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <div class="brand-icon">⛓️</div>
+      <div>
+        <div class="brand-name">MicroChain</div>
+        <div class="brand-sub">Proof Verifier</div>
+      </div>
+    </div>
+    <div class="nav-links" style="display:flex;align-items:center;gap:8px;">
+      <a href="explorer.html" class="nav-link">🌐 Explorer</a>
+      <a href="index.html" class="nav-link">← Admin Panel</a>
+    </div>
+  </nav>
+
+  <div class="main">
+
+    <div class="page-header">
+      <div class="badge">Zero-Knowledge Proof</div>
+      <h1>Verify a Credential Proof</h1>
+      <p>Upload a ZKP proof file and verify it cryptographically using the<br>
+         public verification key stored on the blockchain — no gas required.</p>
+    </div>
+
+    <!-- RPC config -->
+    <div class="rpc-bar">
+      <div class="dot-live" id="rpc-dot" style="background:var(--muted);animation:none;"></div>
+      <label>RPC:</label>
+      <input id="rpc-url" class="mono" type="text" value="http://127.0.0.1:8545" placeholder="http://127.0.0.1:8545">
+      <label style="margin-left:12px;">CircuitRegistry:</label>
+      <input id="circuit-addr" class="mono" type="text" placeholder="0x… (auto-loaded)">
+      <label style="margin-left:12px;">CredentialIssuer:</label>
+      <input id="issuer-addr" class="mono" type="text" placeholder="0x… (auto-loaded)">
+    </div>
+
+    <!-- Step 1 -->
+    <p class="section-label">Step 1 — Upload proof file</p>
+    <div class="card">
+      <div class="card-title"><div class="icon blue">📄</div>Proof JSON</div>
+      <div class="info-box">
+        The proof file is named <code>proof_grade.json</code>, <code>proof_gpa.json</code>, etc.
+        It is generated by the student using the ZKP generation page and shared with you.
+      </div>
+      <div class="form-group">
+        <label for="proof-file">proof_*.json file</label>
+        <input id="proof-file" type="file" accept=".json,application/json">
+        <div class="hint" id="proof-hint"></div>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <p class="section-label">Step 2 — Select circuit</p>
+    <div class="card">
+      <div class="card-title"><div class="icon purple">🔑</div>Circuit type</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.6;">
+        Only circuits whose verification key has been <strong>published on-chain</strong> are shown.
+        The student should tell you which claim they proved.
+      </p>
+      <div id="circuit-loading" style="font-size:13px;color:var(--muted);padding:8px 0;">⏳ Loading available circuits from blockchain…</div>
+      <div id="circuit-error" style="display:none;font-size:13px;color:#ff8080;padding:8px 0;"></div>
+      <div class="form-row" id="circuit-select-row" style="display:none;">
+        <div class="form-group" style="flex:1">
+          <label for="circuit-name">Circuit / claim type</label>
+          <select id="circuit-name">
+            <!-- populated dynamically -->
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <p class="section-label">Step 3 — Credential lookup <span style="color:var(--muted);font-size:10px;font-weight:500;">(at least one field recommended)</span></p>
+    <div class="card">
+      <div class="card-title"><div class="icon teal">🔍</div>Find credential on-chain</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.6;">
+        To confirm the degree is real and not revoked, the verifier searches for a matching
+        Merkle root on-chain. Provide a <strong>credential ID</strong> for an instant lookup,
+        a <strong>university address</strong> to search only that university's credentials,
+        or leave both blank to search all credentials (may be slow with many entries).
+      </p>
+      <div class="form-row">
+        <div class="form-group" style="flex:1;min-width:180px;">
+          <label for="cred-id">Credential ID <span style="color:var(--muted);font-weight:400;">(optional — fastest)</span></label>
+          <input id="cred-id" type="number" min="1" placeholder="e.g. 3">
+        </div>
+        <div style="display:flex;align-items:center;color:var(--muted);font-size:12px;padding-top:22px;">or</div>
+        <div class="form-group" style="flex:2;min-width:280px;">
+          <label for="uni-addr">University address <span style="color:var(--muted);font-weight:400;">(optional — narrows search)</span></label>
+          <input id="uni-addr" class="mono" type="text" placeholder="0x… issuing university">
+        </div>
+      </div>
+      <div id="scan-status" style="display:none;font-size:12px;color:var(--muted);margin-top:4px;"></div>
+    </div>
+
+    <!-- Verify button -->
+    <button id="btn-verify" class="btn btn-primary btn-full">
+      <span class="spinner"></span>
+      <span class="btn-label">🔍 Verify Proof</span>
+    </button>
+
+    <div id="error-box" class="error-box"></div>
+
+    <!-- Result panel -->
+    <div id="result-panel">
+      <div class="result-header">
+        <div id="res-icon" class="result-icon"></div>
+        <div>
+          <div id="res-title" class="result-title"></div>
+          <div id="res-sub" class="result-sub"></div>
+        </div>
+      </div>
+      <div class="result-body">
+        <div id="check-rows"></div>
+        <div class="claims-box">
+          <h4>Public claims from proof</h4>
+          <div id="claims-list"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+  <script src="https://unpkg.com/snarkjs@0.7.5/build/snarkjs.min.js"></script>
+  <script>
+
+  // ── Contract ABIs (read-only subset) ──────────────────────────────────
+
+  const CIRCUIT_ABI = [
+    { "inputs": [{ "internalType": "string", "name": "_circuitName", "type": "string" }], "name": "getVerificationKey", "outputs": [{ "internalType": "bytes", "name": "", "type": "bytes" }], "stateMutability": "view", "type": "function" },
+    { "inputs": [{ "internalType": "string", "name": "_circuitName", "type": "string" }], "name": "hasVerificationKey", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" },
+    { "inputs": [], "name": "getAllCircuitNames", "outputs": [{ "internalType": "string[]", "name": "", "type": "string[]" }], "stateMutability": "view", "type": "function" }
+  ];
+
+  const ISSUER_ABI = [
+    { "inputs": [{ "internalType": "uint256", "name": "_credentialId", "type": "uint256" }], "name": "getCredential", "outputs": [{ "components": [{ "internalType": "uint256", "name": "credentialId", "type": "uint256" }, { "internalType": "address", "name": "issuer", "type": "address" }, { "internalType": "bytes32", "name": "merkleRoot", "type": "bytes32" }, { "internalType": "uint256", "name": "issuedAt", "type": "uint256" }, { "internalType": "bool", "name": "isRevoked", "type": "bool" }], "internalType": "struct CredentialIssuer.Credential", "name": "", "type": "tuple" }], "stateMutability": "view", "type": "function" },
+    { "inputs": [{ "internalType": "uint256", "name": "_credentialId", "type": "uint256" }], "name": "isCredentialValid", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" },
+    { "inputs": [{ "internalType": "uint256", "name": "_credentialId", "type": "uint256" }], "name": "getMerkleRoot", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" },
+    { "inputs": [{ "internalType": "address", "name": "_issuer", "type": "address" }], "name": "getIssuerCredentials", "outputs": [{ "internalType": "uint256[]", "name": "", "type": "uint256[]" }], "stateMutability": "view", "type": "function" },
+    { "inputs": [], "name": "totalCredentials", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }
+  ];
+
+  const REGISTRY_ABI = [
+    { "inputs": [{ "internalType": "address", "name": "_university", "type": "address" }], "name": "isAuthorizedUniversity", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }
+  ];
+
+  // ── Circuit public input layout (from abi.json) ────────────────────────
+  // public inputs order in proof.inputs:
+  //   [0]     = soglia     (u32)   — threshold / code
+  //   [1..8]  = radice     (u32[8])— merkle root as 8×32-bit chunks
+  //   [9..32] = fratelli   (u32[8][3]) — sibling hashes (24 values)
+  //   [33..35]= direzioni  (bool[3])   — path directions
+
+  const CIRCUIT_META = {
+    grade: { label: 'Final grade',     unit: '',    op: '≥' },
+    gpa:   { label: 'GPA × 100',       unit: '/100', op: '≥', postprocess: v => (v/100).toFixed(2) },
+    eqf:   { label: 'EQF level',       unit: '',    op: '≥' },
+    isced: { label: 'ISCED field code', unit: '',   op: '=' },
+  };
+
+  // ── DOM helpers ────────────────────────────────────────────────────────
+
+  const $ = id => document.getElementById(id);
+
+  function showError(msg) {
+    const el = $('error-box');
+    el.textContent = '⚠ ' + msg;
+    el.style.display = 'block';
+  }
+  function hideError() { $('error-box').style.display = 'none'; }
+
+  function setLoading(loading) {
+    const btn = $('btn-verify');
+    btn.classList.toggle('loading', loading);
+    btn.disabled = loading;
+  }
+
+  // ── Auto-load contract addresses from deploy-config.json ───────────────
+
+  async function tryLoadConfig() {
+    try {
+      const res = await fetch('./deploy-config.json');
+      if (!res.ok) return;
+      const cfg = await res.json();
+      if (cfg.CircuitRegistry)  $('circuit-addr').value = cfg.CircuitRegistry;
+      if (cfg.CredentialIssuer) $('issuer-addr').value  = cfg.CredentialIssuer;
+    } catch { /* manual input */ }
+  }
+
+  // ── Load available circuits dynamically from blockchain ────────────────
+
+  const CIRCUIT_LABELS = {
+    grade: 'grade — Final grade ≥ threshold',
+    gpa:   'gpa — Average GPA ≥ threshold',
+    eqf:   'eqf — EQF qualification level ≥ threshold',
+    isced: 'isced — ISCED field code = value',
+  };
+
+  async function loadCircuits() {
+    const circuitAddr = $('circuit-addr').value.trim();
+    const rpcUrl = $('rpc-url').value.trim() || 'http://127.0.0.1:8545';
+
+    $('circuit-loading').style.display = 'block';
+    $('circuit-error').style.display = 'none';
+    $('circuit-select-row').style.display = 'none';
+
+    if (!circuitAddr || !ethers.isAddress(circuitAddr)) {
+      $('circuit-loading').style.display = 'none';
+      $('circuit-error').style.display = 'block';
+      $('circuit-error').textContent = '⚠ CircuitRegistry address not loaded. Check deploy-config.json or fill it in above.';
+      return;
+    }
+
+    try {
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
+      const contract = new ethers.Contract(circuitAddr, CIRCUIT_ABI, provider);
+      const names = await contract.getAllCircuitNames();
+
+      const select = $('circuit-name');
+      select.innerHTML = '';
+
+      if (names.length === 0) {
+        $('circuit-loading').style.display = 'none';
+        $('circuit-error').style.display = 'block';
+        $('circuit-error').textContent = '⚠ No verification keys have been published on-chain yet. Ask the owner to upload keys via the admin panel.';
+        return;
+      }
+
+      names.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = CIRCUIT_LABELS[name] || name;
+        select.appendChild(opt);
+      });
+
+      $('circuit-loading').style.display = 'none';
+      $('circuit-select-row').style.display = 'flex';
+
+      // Update RPC dot to connected
+      $('rpc-dot').style.background = 'var(--green)';
+      $('rpc-dot').style.animation = 'pulse 2s infinite';
+
+      // Re-apply auto-detect from filename if file already chosen
+      const file = $('proof-file').files[0];
+      if (file) autoDetectCircuit(file.name, names);
+
+    } catch (e) {
+      $('circuit-loading').style.display = 'none';
+      $('circuit-error').style.display = 'block';
+      $('circuit-error').textContent = '⚠ Could not connect to blockchain: ' + e.message;
+    }
+  }
+
+  function autoDetectCircuit(filename, availableNames) {
+    const lower = filename.toLowerCase();
+    const select = $('circuit-name');
+    for (const name of availableNames) {
+      if (lower.includes(name)) {
+        select.value = name;
+        break;
+      }
+    }
+  }
+
+  // ── Format conversion: ZoKrates → snarkjs ─────────────────────────────
+
+  function g1ToSnarkjs(pt) {
+    // ZoKrates G1: ["0xHEX", "0xHEX"]
+    // snarkjs G1:  [BigInt().toString(), BigInt().toString(), "1"]
+    return [BigInt(pt[0]).toString(), BigInt(pt[1]).toString(), "1"];
+  }
+
+  function g2ToSnarkjs(pt) {
+    // ZoKrates G2: [["0xA0","0xA1"], ["0xB0","0xB1"]]
+    // snarkjs G2:  [["A0","A1"], ["B0","B1"], ["1","0"]]
+    return [
+      [BigInt(pt[0][0]).toString(), BigInt(pt[0][1]).toString()],
+      [BigInt(pt[1][0]).toString(), BigInt(pt[1][1]).toString()],
+      ["1", "0"]
+    ];
+  }
+
+  function vkToSnarkjs(zokVk) {
+    return {
+      protocol: "groth16",
+      curve: "bn128",
+      nPublic: zokVk.gamma_abc.length - 1,
+      vk_alpha_1: g1ToSnarkjs(zokVk.alpha),
+      vk_beta_2:  g2ToSnarkjs(zokVk.beta),
+      vk_gamma_2: g2ToSnarkjs(zokVk.gamma),
+      vk_delta_2: g2ToSnarkjs(zokVk.delta),
+      IC: zokVk.gamma_abc.map(g1ToSnarkjs),
+    };
+  }
+
+  function proofToSnarkjs(zokProof) {
+    return {
+      pi_a: g1ToSnarkjs(zokProof.proof.a),
+      pi_b: g2ToSnarkjs(zokProof.proof.b),
+      pi_c: g1ToSnarkjs(zokProof.proof.c),
+      protocol: "groth16",
+      curve: "bn128",
+    };
+  }
+
+  // ── Reconstruct Merkle root from public inputs ────────────────────────
+  // inputs[1..8] are the 8 u32 chunks — reassemble into bytes32 hex
+
+  function extractMerkleRoot(inputs) {
+    // ZoKrates outputs u32 field elements as decimal or hex strings
+    const chunks = inputs.slice(1, 9).map(x => {
+      const n = BigInt(x);
+      return n.toString(16).padStart(8, '0');
+    });
+    return '0x' + chunks.join('');
+  }
+
+  // ── Check row builder ──────────────────────────────────────────────────
+
+  function addCheckRow(icon, label, detail, statusText, statusClass) {
+    const row = document.createElement('div');
+    row.className = 'check-row';
+    row.innerHTML = `
+      <div class="check-icon">${icon}</div>
+      <div style="flex:1">
+        <div class="check-label">${label}</div>
+        <div class="check-detail">${detail}</div>
+      </div>
+      <div class="check-status ${statusClass}">${statusText}</div>
+    `;
+    $('check-rows').appendChild(row);
+  }
+
+  // ── Main verification flow ─────────────────────────────────────────────
+
+  async function verify() {
+    hideError();
+    $('result-panel').style.display = 'none';
+    $('check-rows').innerHTML = '';
+    $('claims-list').innerHTML = '';
+
+    // ── Collect inputs ──
+    const proofFile   = $('proof-file').files[0];
+    const circuitName = $('circuit-name').value;
+    const credIdRaw   = $('cred-id').value.trim();
+    const uniAddr     = $('uni-addr').value.trim();
+    const rpcUrl      = $('rpc-url').value.trim() || 'http://127.0.0.1:8545';
+    const circuitAddr = $('circuit-addr').value.trim();
+    const issuerAddr  = $('issuer-addr').value.trim();
+
+    if (!proofFile) { showError('Please upload a proof.json file.'); return; }
+    if (!circuitAddr) { showError('CircuitRegistry address is missing. Auto-loading failed — check that deploy-config.json exists.'); return; }
+    if (!issuerAddr || !ethers.isAddress(issuerAddr)) { showError('CredentialIssuer address is missing. Check deploy-config.json.'); return; }
+
+    setLoading(true);
+
+    try {
+      // ── 1. Parse proof file ──
+      const proofText = await proofFile.text();
+      let zokProof;
+      try { zokProof = JSON.parse(proofText); }
+      catch (e) { throw new Error('Proof file is not valid JSON: ' + e.message); }
+
+      if (!zokProof.proof || !zokProof.inputs) {
+        throw new Error('Proof file is missing "proof" or "inputs" fields. Expected a ZoKrates proof.json.');
+      }
+
+      // ── 2. Fetch verification key from blockchain ──
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
+
+      // Test connectivity
+      try { await provider.getBlockNumber(); }
+      catch (e) { throw new Error('Cannot connect to RPC at ' + rpcUrl + '. Is the Hardhat node running?'); }
+
+      const circuitContract = new ethers.Contract(circuitAddr, CIRCUIT_ABI, provider);
+
+      const hasKey = await circuitContract.hasVerificationKey(circuitName);
+      if (!hasKey) {
+        throw new Error(`No verification key published on-chain for circuit "${circuitName}". Ask the owner to upload it.`);
+      }
+
+      const vkBytesHex = await circuitContract.getVerificationKey(circuitName);
+      // Decode: bytes → UTF-8 string → parse JSON
+      const vkBytes = ethers.getBytes(vkBytesHex);
+      const vkText  = new TextDecoder().decode(vkBytes);
+      let zokVk;
+      try { zokVk = JSON.parse(vkText); }
+      catch (e) { throw new Error('Verification key on-chain is not valid JSON: ' + e.message); }
+
+      // ── 3. Convert formats ──
+      const snarkVk    = vkToSnarkjs(zokVk);
+      const snarkProof = proofToSnarkjs(zokProof);
+      // Public signals: ZoKrates hex field elements → decimal strings for snarkjs
+      const publicSignals = zokProof.inputs.map(x => BigInt(x).toString());
+
+      // ── 4. Cryptographic verification (snarkjs Groth16) ──
+      let proofValid = false;
+      let proofError = null;
+      try {
+        proofValid = await snarkjs.groth16.verify(snarkVk, publicSignals, snarkProof);
+      } catch (e) {
+        proofError = e.message;
+      }
+
+      // ── 5. On-chain credential lookup (3-tier) ──
+      // Tier 1: direct ID lookup (instant)
+      // Tier 2: scan university's credentials (fast if provided)
+      // Tier 3: scan all credentials (exhaustive fallback)
+      let credStatus;
+      let credData   = null;
+      let proofRootMatches = null;
+      let foundCredId = null;
+
+      const setScanStatus = (msg) => {
+        const el = $('scan-status');
+        el.style.display = msg ? 'block' : 'none';
+        el.textContent = msg;
+      };
+
+      {
+        const issuerContract = new ethers.Contract(issuerAddr, ISSUER_ABI, provider);
+        const proofRoot = extractMerkleRoot(zokProof.inputs).toLowerCase();
+
+        let idsToSearch = null; // null = not yet determined
+
+        if (credIdRaw) {
+          // Tier 1: known ID
+          setScanStatus('🔍 Looking up credential #' + credIdRaw + '…');
+          idsToSearch = [parseInt(credIdRaw)];
+        } else if (uniAddr && ethers.isAddress(uniAddr)) {
+          // Tier 2: fetch all credentials from this university
+          setScanStatus('🔍 Fetching credentials from university ' + uniAddr.slice(0,10) + '……');
+          const ids = await issuerContract.getIssuerCredentials(uniAddr);
+          idsToSearch = ids.map(id => Number(id));
+          setScanStatus(`🔍 Scanning ${idsToSearch.length} credential(s) from this university…`);
+        } else {
+          // Tier 3: scan all credentials
+          const total = Number(await issuerContract.totalCredentials());
+          setScanStatus(`⚠️ No ID or university provided — scanning all ${total} credential(s). This may take a moment…`);
+          idsToSearch = Array.from({ length: total }, (_, i) => i + 1);
+        }
+
+        // Scan roots in parallel batches of 10 to avoid rate-limiting
+        const BATCH = 10;
+        let matchId = null;
+        for (let i = 0; i < idsToSearch.length && matchId === null; i += BATCH) {
+          const batch = idsToSearch.slice(i, i + BATCH);
+          const roots = await Promise.all(batch.map(id => issuerContract.getMerkleRoot(id).catch(() => null)));
+          for (let j = 0; j < roots.length; j++) {
+            if (roots[j] && roots[j].toLowerCase() === proofRoot) {
+              matchId = batch[j];
+              break;
+            }
+          }
+          if (idsToSearch.length > BATCH) {
+            setScanStatus(`🔍 Scanned ${Math.min(i + BATCH, idsToSearch.length)}/${idsToSearch.length} credentials…`);
+          }
+        }
+        setScanStatus('');
+
+        if (matchId === null) {
+          credStatus = 'notfound';
+          foundCredId = null;
+        } else {
+          foundCredId = matchId;
+          try {
+            credData = await issuerContract.getCredential(matchId);
+            credStatus = credData.isRevoked ? 'revoked' : 'valid';
+            proofRootMatches = true; // we found it by root match, so always true
+          } catch (e) {
+            credStatus = 'error';
+          }
+        }
+      }
+
+      // ── 6. Build result UI ──
+      const overallValid = proofValid &&
+        credStatus === 'valid' &&
+        proofRootMatches === true;
+
+      // Result header
+      $('result-panel').style.display = 'block';
+      $('res-icon').className = `result-icon ${overallValid ? 'valid' : 'invalid'}`;
+      $('res-icon').textContent = overallValid ? '✅' : '❌';
+      $('res-title').className = `result-title ${overallValid ? 'valid' : 'invalid'}`;
+      $('res-title').textContent = overallValid ? 'Proof is Valid' : 'Verification Failed';
+      $('res-sub').textContent = overallValid
+        ? 'The cryptographic proof is valid and the credential is in good standing.'
+        : 'One or more checks failed — see details below.';
+
+      // Check rows
+      if (proofError) {
+        addCheckRow('❌', 'Cryptographic proof', 'snarkjs Groth16 verification error: ' + proofError, 'ERROR', 'bad');
+      } else {
+        addCheckRow(
+          proofValid ? '✅' : '❌',
+          'Cryptographic proof',
+          `Groth16 BN128 verification against "${circuitName}" circuit key fetched from blockchain`,
+          proofValid ? 'VALID' : 'INVALID',
+          proofValid ? 'ok' : 'bad'
+        );
+      }
+
+      addCheckRow('🔑', 'Verification key source', 'Key fetched from CircuitRegistry on-chain — not locally stored', 'ON-CHAIN', 'ok');
+
+      if (credStatus === 'notfound') {
+        addCheckRow('❌', 'On-chain credential status', `Credential #${credIdRaw} does not exist on-chain`, 'NOT FOUND', 'bad');
+      } else if (credStatus === 'revoked') {
+        addCheckRow('❌', 'On-chain credential status', `Credential #${credIdRaw} has been revoked by the issuing university`, 'REVOKED', 'bad');
+      } else if (credStatus === 'error') {
+        addCheckRow('⚠️', 'On-chain credential status', 'Could not read credential from blockchain (check CredentialIssuer address)', 'ERROR', 'warn');
+      } else {
+        addCheckRow('✅', 'On-chain credential status', `Credential #${credIdRaw} exists and has not been revoked`, 'VALID', 'ok');
+      }
+
+      if (proofRootMatches !== null) {
+        addCheckRow(
+          proofRootMatches ? '✅' : '❌',
+          'Merkle root consistency',
+          proofRootMatches
+            ? `Root embedded in proof matches on-chain root for credential #${foundCredId}`
+            : `Root in proof does NOT match the on-chain root — proof does not belong to credential #${foundCredId}`,
+          proofRootMatches ? 'MATCH' : 'MISMATCH',
+          proofRootMatches ? 'ok' : 'bad'
+        );
+      }
+
+      // Claims box
+      const meta     = CIRCUIT_META[circuitName];
+      const soglia   = Number(BigInt(zokProof.inputs[0]));
+      const rootHex  = extractMerkleRoot(zokProof.inputs);
+      const display  = meta.postprocess ? meta.postprocess(soglia) : soglia;
+
+      const claimsData = [
+        { key: 'Claim type',    val: circuitName },
+        { key: `${meta.label} ${meta.op}`, val: `${display}${meta.unit}` },
+        { key: 'Merkle root (from proof)', val: rootHex },
+      ];
+      if (credData) {
+        claimsData.push({ key: 'Credential ID', val: String(foundCredId) });
+        claimsData.push({ key: 'Issued by', val: credData.issuer });
+        claimsData.push({ key: 'Issued at', val: new Date(Number(credData.issuedAt) * 1000).toLocaleString() });
+      }
+
+      claimsData.forEach(({ key, val }) => {
+        const div = document.createElement('div');
+        div.className = 'claim-item';
+        div.innerHTML = `<span class="key">${key}</span><span class="val">${escapeHtml(String(val))}</span>`;
+        $('claims-list').appendChild(div);
+      });
+
+      // Update RPC dot
+      $('rpc-dot').style.background = 'var(--green)';
+      $('rpc-dot').style.animation = 'pulse 2s infinite';
+
+    } catch (err) {
+      showError(err.message || 'Unknown error during verification.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function escapeHtml(str) {
+    return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── File name hint + circuit auto-detect ─────────────────────────────
+
+  $('proof-file').addEventListener('change', function() {
+    if (this.files[0]) {
+      $('proof-hint').textContent = '✓ ' + this.files[0].name + ' loaded';
+      const availableNames = [...$('circuit-name').options].map(o => o.value);
+      if (availableNames.length > 0) autoDetectCircuit(this.files[0].name, availableNames);
+    }
+  });
+
+  // Reload circuits when addresses change
+  $('circuit-addr').addEventListener('change', loadCircuits);
+  $('rpc-url').addEventListener('change', loadCircuits);
+
+  // ── Boot ───────────────────────────────────────────────────────────────
+
+  window.addEventListener('DOMContentLoaded', async () => {
+    await tryLoadConfig();
+    await loadCircuits();
+    $('btn-verify').onclick = verify;
+  });
+
+  </script>
+</body>
+</html>

@@ -1,17 +1,19 @@
 /**
  * deploy-and-save.js
  *
- * A simple Node.js script that:
- *  1. Deploys all 4 contracts to the local Hardhat node
- *  2. Saves the deployed addresses to frontend/deploy-config.json
- *     so the frontend auto-loads them without copy-pasting.
+ * Deploys the core contract set to a local Hardhat node and saves
+ * addresses to frontend/deploy-config.json so the frontend auto-loads them.
+ *
+ * Contract set:
+ *   1. UniversityRegistry  — owner whitelists universities
+ *   2. CredentialIssuer    — universities publish Merkle roots (no personal data)
+ *   3. CircuitRegistry     — owner stores ZoKrates verification keys per circuit
  *
  * Usage:
  *   Terminal 1 → npx hardhat node
  *   Terminal 2 → node scripts/deploy-and-save.js
  *
- *   Then open frontend/index.html in your browser (via a local server,
- *   e.g. `npx serve frontend` or the Live Server VS Code extension).
+ *   Then open the frontend with:  npx serve frontend
  */
 
 const { ethers } = require("ethers");
@@ -29,12 +31,11 @@ async function main() {
 
     console.log("Deploying with owner:", owner.address);
 
-    // Fetch the starting nonce once — we'll pass it explicitly to avoid
-    // race conditions with Hardhat's automining (nonce 0 used twice bug).
+    // Fetch the starting nonce once to avoid race conditions with Hardhat automining.
     let nonce = await provider.getTransactionCount(owner.address, "pending");
     const deployOpts = () => ({ nonce: nonce++ });
 
-    // ── 1. UniversityRegistry ──
+    // ── 1. UniversityRegistry ──────────────────────────────────────────────
     const RegistryArtifact = require("../artifacts/contracts/Authority.sol/UniversityRegistry.json");
     const RegistryFactory = new ethers.ContractFactory(RegistryArtifact.abi, RegistryArtifact.bytecode, owner);
     const registry = await RegistryFactory.deploy(deployOpts());
@@ -42,36 +43,27 @@ async function main() {
     const registryAddr = await registry.getAddress();
     console.log("✅ UniversityRegistry:", registryAddr);
 
-    // ── 2. CredentialSchema ──
-    const SchemaArtifact = require("../artifacts/contracts/CredentialSchema.sol/CredentialSchema.json");
-    const SchemaFactory = new ethers.ContractFactory(SchemaArtifact.abi, SchemaArtifact.bytecode, owner);
-    const schema = await SchemaFactory.deploy(registryAddr, deployOpts());
-    await schema.waitForDeployment();
-    const schemaAddr = await schema.getAddress();
-    console.log("✅ CredentialSchema:  ", schemaAddr);
-
-    // ── 3. CredentialIssuer ──
+    // ── 2. CredentialIssuer ────────────────────────────────────────────────
     const IssuerArtifact = require("../artifacts/contracts/CredentialIssuer.sol/CredentialIssuer.json");
     const IssuerFactory = new ethers.ContractFactory(IssuerArtifact.abi, IssuerArtifact.bytecode, owner);
-    const issuer = await IssuerFactory.deploy(registryAddr, schemaAddr, deployOpts());
+    const issuer = await IssuerFactory.deploy(registryAddr, deployOpts());
     await issuer.waitForDeployment();
     const issuerAddr = await issuer.getAddress();
-    console.log("✅ CredentialIssuer:  ", issuerAddr);
+    console.log("✅ CredentialIssuer: ", issuerAddr);
 
-    // ── 4. CredentialVerifier ──
-    const VerifierArtifact = require("../artifacts/contracts/CredentialVerifier.sol/CredentialVerifier.json");
-    const VerifierFactory = new ethers.ContractFactory(VerifierArtifact.abi, VerifierArtifact.bytecode, owner);
-    const verifier = await VerifierFactory.deploy(issuerAddr, deployOpts());
-    await verifier.waitForDeployment();
-    const verifierAddr = await verifier.getAddress();
-    console.log("✅ CredentialVerifier:", verifierAddr);
+    // ── 3. CircuitRegistry ─────────────────────────────────────────────────
+    const CircuitArtifact = require("../artifacts/contracts/CircuitRegistry.sol/CircuitRegistry.json");
+    const CircuitFactory = new ethers.ContractFactory(CircuitArtifact.abi, CircuitArtifact.bytecode, owner);
+    const circuitRegistry = await CircuitFactory.deploy(deployOpts());
+    await circuitRegistry.waitForDeployment();
+    const circuitRegistryAddr = await circuitRegistry.getAddress();
+    console.log("✅ CircuitRegistry:  ", circuitRegistryAddr);
 
-    // ── Save to frontend/deploy-config.json ──
+    // ── Save to frontend/deploy-config.json ───────────────────────────────
     const config = {
         UniversityRegistry: registryAddr,
-        CredentialSchema: schemaAddr,
         CredentialIssuer: issuerAddr,
-        CredentialVerifier: verifierAddr,
+        CircuitRegistry: circuitRegistryAddr,
         ownerAddress: owner.address,
         deployedAt: new Date().toISOString(),
     };
@@ -79,9 +71,10 @@ async function main() {
     const outPath = path.join(__dirname, "..", "frontend", "deploy-config.json");
     fs.writeFileSync(outPath, JSON.stringify(config, null, 2));
     console.log("\n📄 Saved to frontend/deploy-config.json");
+
     console.log("\n🚀 Open the frontend with:");
     console.log("   npx serve frontend");
-    console.log("\n🔑 Add Hardhat test accounts to MetaMask:");
+    console.log("\n🔑 Hardhat test accounts for MetaMask:");
     console.log("   Network: Hardhat Localhost · RPC: http://127.0.0.1:8545 · Chain ID: 31337");
     console.log("   Account 0 (owner) PK: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
     console.log("   Account 1 (uni)   PK: 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d");

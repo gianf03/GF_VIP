@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MicroChain Admin — Credential Blockchain</title>
   <meta name="description"
-    content="Admin interface to manage universities and credential schemas on the permissioned microcredential blockchain.">
+    content="Admin interface to manage universities and credentials on the permissioned microcredential blockchain.">
   <link rel="stylesheet" href="style.css">
 </head>
 
@@ -29,6 +29,8 @@
       </div>
     </div>
     <div class="wallet-area">
+      <a href="explorer.html" style="color:#14b8a6;text-decoration:none;font-size:13px;font-weight:500;padding:6px 14px;border:1px solid rgba(20,184,166,.3);border-radius:8px;margin-right:8px;">🌐 Explorer</a>
+      <a href="verify.html" style="color:#a78bfa;text-decoration:none;font-size:13px;font-weight:500;padding:6px 14px;border:1px solid rgba(124,92,252,.3);border-radius:8px;margin-right:8px;">🔍 Verify Proof</a>
       <span id="role-badge" class="role-badge guest"></span>
       <div id="wallet-chip" class="wallet-chip">
         <div class="dot"></div>
@@ -82,8 +84,12 @@
           <input id="registry-addr" class="mono" type="text" placeholder="0x…" autocomplete="off">
         </div>
         <div class="form-group">
-          <label for="schema-addr">CredentialSchema address</label>
-          <input id="schema-addr" class="mono" type="text" placeholder="0x…" autocomplete="off">
+          <label for="issuer-addr">CredentialIssuer address</label>
+          <input id="issuer-addr" class="mono" type="text" placeholder="0x…" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label for="circuit-addr">CircuitRegistry address</label>
+          <input id="circuit-addr" class="mono" type="text" placeholder="0x…" autocomplete="off">
         </div>
       </div>
       <div style="margin-top:18px;">
@@ -103,7 +109,8 @@
     <!-- Tab Bar -->
     <div class="tab-bar">
       <button class="tab-btn active" data-tab="universities">🏛️ Universities</button>
-      <button class="tab-btn" data-tab="schemas">📋 Credential Types</button>
+      <button class="tab-btn" data-tab="credentials">🎓 Credentials</button>
+      <button class="tab-btn" data-tab="circuits">🔑 Circuit Keys</button>
     </div>
 
     <!-- ─── Tab: Universities ─────────────────────────────────────── -->
@@ -118,7 +125,7 @@
         </div>
         <p style="font-size:13px;color:#8b91b0;margin-bottom:18px;line-height:1.5;">
           Only the <strong>contract owner</strong> can authorize universities.
-          Once authorized, the university's wallet address can issue credentials and define degree schemas.
+          Once authorized, the university's wallet address can issue credentials.
         </p>
         <div class="form-row">
           <div class="form-group" style="flex:2; min-width:220px;">
@@ -159,64 +166,119 @@
 
     </div><!-- /panel-universities -->
 
-    <!-- ─── Tab: Credential Types (Schemas) ───────────────────────── -->
-    <div id="panel-schemas" class="tab-panel">
+    <!-- ─── Tab: Credentials ───────────────────────────────────────── -->
+    <div id="panel-credentials" class="tab-panel">
 
-      <!-- Create Schema (university only) -->
-      <p class="section-title">Define New Credential Type</p>
+      <!-- Issue Credential (university only) -->
+      <p class="section-title">Issue New Credential</p>
       <div class="card">
         <div class="card-title">
-          <div class="icon blue">📝</div>
-          Add Credential Schema
+          <div class="icon blue">🎓</div>
+          Publish Degree Merkle Root
         </div>
         <p style="font-size:13px;color:#8b91b0;margin-bottom:18px;line-height:1.5;">
-          Only <strong>authorized universities</strong> can define credential types.
-          A schema is a named template (e.g. "Bachelor in Computer Science") that must
-          be referenced every time a credential is issued.
+          Only <strong>authorized universities</strong> can issue credentials.
+          Run <code>buildJSON.py</code> on the degree JSON to obtain the Merkle root,
+          then paste it below. No personal data is stored on-chain.
         </p>
         <div class="form-row">
-          <div class="form-group" style="flex:3;">
-            <label for="schema-name">Credential name</label>
-            <input id="schema-name" type="text" placeholder="e.g. Laurea Magistrale in Informatica" autocomplete="off">
-          </div>
-          <div class="form-group" style="flex:1; min-width:130px;">
-            <label for="schema-code">Short code</label>
-            <input id="schema-code" type="text" placeholder="LM_INF" autocomplete="off" maxlength="20"
-              style="text-transform:uppercase;">
+          <div class="form-group" style="flex:1;">
+            <label for="issue-root">Merkle root (bytes32)</label>
+            <input id="issue-root" class="mono" type="text" placeholder="0x…" autocomplete="off">
           </div>
           <div class="form-group" style="flex:0; min-width:auto;">
             <label>&nbsp;</label>
-            <button id="btn-create-schema" class="btn btn-primary">
+            <button id="btn-issue" class="btn btn-primary">
               <span class="spinner"></span>
-              <span class="btn-label">+ Create</span>
+              <span class="btn-label">+ Issue</span>
             </button>
           </div>
         </div>
       </div>
 
-      <!-- Schemas list -->
-      <p class="section-title">Registered Credential Types</p>
+      <!-- Credentials list -->
+      <p class="section-title">Issued Credentials</p>
       <div class="card">
         <div class="list-header">
           <div class="card-title" style="margin-bottom:0;">
-            <div class="icon blue">🎓</div>
-            All Credential Types
-            <span id="schema-count" class="count-badge">0</span>
+            <div class="icon blue">📜</div>
+            Credentials (by connected university)
+            <span id="cred-count" class="count-badge">0</span>
           </div>
-          <button id="btn-refresh-schemas" class="btn btn-ghost" style="min-width:auto;padding:7px 14px;">
+          <button id="btn-refresh-creds" class="btn btn-ghost" style="min-width:auto;padding:7px 14px;">
             ↻ Refresh
           </button>
         </div>
-        <div id="schema-list" class="entity-list">
+        <div id="cred-list" class="entity-list">
           <div class="empty-state"><span class="icon">⏳</span>Loading…</div>
         </div>
       </div>
 
-    </div><!-- /panel-schemas -->
+    </div><!-- /panel-credentials -->
+
+    <!-- ─── Tab: Circuit Keys ─────────────────────────────────────── -->
+    <div id="panel-circuits" class="tab-panel">
+
+      <!-- Upload verification key (owner only) -->
+      <p class="section-title">Publish Verification Key</p>
+      <div class="card">
+        <div class="card-title">
+          <div class="icon purple">🔑</div>
+          Upload ZoKrates Verification Key
+        </div>
+        <p style="font-size:13px;color:#8b91b0;margin-bottom:18px;line-height:1.5;">
+          Only the <strong>contract owner</strong> can publish verification keys.
+          Select the circuit name and paste the raw content of
+          <code>PROOF_GENERATION/zokrates/&lt;circuit&gt;/verification.key</code>.
+        </p>
+        <div class="form-row">
+          <div class="form-group" style="flex:0; min-width:160px;">
+            <label for="vk-circuit">Circuit</label>
+            <select id="vk-circuit" style="width:100%;padding:10px 14px;background:#1a1d2e;color:#e2e5f1;border:1px solid #2d3154;border-radius:8px;font-size:13px;">
+              <option value="grade">grade</option>
+              <option value="gpa">gpa</option>
+              <option value="eqf">eqf</option>
+              <option value="isced">isced</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label for="vk-file">verification.key file</label>
+            <input id="vk-file" type="file" accept=".key,.json,application/json,*/*"
+              style="width:100%;padding:9px 14px;background:#1a1d2e;color:#e2e5f1;border:1px solid #2d3154;border-radius:8px;font-size:13px;cursor:pointer;">
+          </div>
+          <div class="form-group" style="flex:0; min-width:auto;">
+            <label>&nbsp;</label>
+            <button id="btn-upload-vk" class="btn btn-primary">
+              <span class="spinner"></span>
+              <span class="btn-label">↑ Upload</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Circuit keys list -->
+      <p class="section-title">Published Circuit Keys</p>
+      <div class="card">
+        <div class="list-header">
+          <div class="card-title" style="margin-bottom:0;">
+            <div class="icon purple">📡</div>
+            Available Circuits
+            <span id="circuit-count" class="count-badge">0</span>
+          </div>
+          <button id="btn-refresh-circuits" class="btn btn-ghost" style="min-width:auto;padding:7px 14px;">
+            ↻ Refresh
+          </button>
+        </div>
+        <div id="circuit-list" class="entity-list">
+          <div class="empty-state"><span class="icon">⏳</span>Loading…</div>
+        </div>
+      </div>
+
+    </div><!-- /panel-circuits -->
 
   </div><!-- /app -->
 
-  <!-- ethers.js v6 from CDN (jsDelivr — no SRI hash needed) -->
+  <!-- ethers.js v6 from CDN -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
   <script src="app.js"></script>
 

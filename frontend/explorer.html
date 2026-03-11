@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MicroChain — Public Blockchain Explorer</title>
+  <meta name="description" content="Explore all public information on the MicroChain credential blockchain: universities, issued degrees, and ZKP verification keys.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0d0f1a;
+      --surface: #13162a;
+      --s2:      #1a1d2e;
+      --border:  #2d3154;
+      --text:    #e2e5f1;
+      --muted:   #8b91b0;
+      --accent:  #7c5cfc;
+      --a2:      #a78bfa;
+      --green:   #22c55e;
+      --red:     #ef4444;
+      --yellow:  #f59e0b;
+      --teal:    #14b8a6;
+      --blue:    #60a5fa;
+      --r:       12px;
+    }
+
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px; min-height: 100vh; }
+
+    /* ── Navbar ── */
+    .navbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; height: 64px;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+    }
+    .navbar-brand  { display: flex; align-items: center; gap: 12px; }
+    .brand-name    { font-size: 16px; font-weight: 700; }
+    .brand-sub     { font-size: 11px; color: var(--muted); }
+    .nav-links     { display: flex; align-items: center; gap: 8px; }
+    .nav-link {
+      color: var(--muted); text-decoration: none; font-size: 13px;
+      padding: 6px 14px; border-radius: 8px; transition: all .15s;
+    }
+    .nav-link:hover  { background: var(--s2); color: var(--text); }
+    .nav-link.active { background: rgba(124,92,252,.12); color: var(--a2); }
+
+    /* ── Layout ── */
+    .main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+
+    /* ── RPC bar ── */
+    .rpc-bar {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--s2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 16px; margin-bottom: 32px; font-size: 12px;
+    }
+    .rpc-bar label { color: var(--muted); white-space: nowrap; }
+    .rpc-bar input { flex: 1; background: transparent; border: none; color: var(--text);
+      font-family: 'JetBrains Mono', monospace; font-size: 12px; outline: none; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+           background: var(--muted); transition: background .4s; }
+    .dot.live { background: var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:.4; } }
+
+    /* ── Page header ── */
+    .page-header { margin-bottom: 40px; }
+    .page-header h1 { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+    .page-header p  { color: var(--muted); font-size: 13px; }
+
+    /* ── Section ── */
+    .section { margin-bottom: 48px; }
+    .section-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .section-title {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 15px; font-weight: 700;
+    }
+    .section-icon {
+      width: 34px; height: 34px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center; font-size: 16px;
+    }
+    .section-icon.purple { background: rgba(124,92,252,.15); }
+    .section-icon.teal   { background: rgba(20,184,166,.15); }
+    .section-icon.blue   { background: rgba(96,165,250,.15); }
+
+    .count-badge {
+      background: var(--s2); border: 1px solid var(--border);
+      border-radius: 99px; padding: 2px 10px;
+      font-size: 11px; font-weight: 600; color: var(--muted);
+    }
+
+    /* ── Refresh button ── */
+    .btn-ghost {
+      background: var(--s2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 6px 14px;
+      font-family: inherit; font-size: 12px; font-weight: 500;
+      color: var(--muted); cursor: pointer; transition: all .15s;
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--accent); }
+    .btn-ghost:disabled { opacity: .4; cursor: default; }
+
+    /* ── Download button ── */
+    .btn-dl {
+      background: rgba(124,92,252,.1); border: 1px solid rgba(124,92,252,.3);
+      border-radius: 8px; padding: 5px 12px;
+      font-family: inherit; font-size: 11px; font-weight: 600;
+      color: var(--a2); cursor: pointer; text-decoration: none;
+      display: inline-flex; align-items: center; gap: 5px;
+      transition: all .15s;
+    }
+    .btn-dl:hover { background: rgba(124,92,252,.2); }
+
+    /* ── Empty / loading state ── */
+    .state-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 32px;
+      text-align: center; color: var(--muted); font-size: 13px;
+    }
+    .state-icon { font-size: 28px; margin-bottom: 10px; }
+
+    /* ── University cards ── */
+    .uni-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+    .uni-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 18px 20px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .uni-card-head { display: flex; align-items: flex-start; gap: 12px; }
+    .status-dot {
+      width: 9px; height: 9px; border-radius: 50%; margin-top: 4px; flex-shrink: 0;
+    }
+    .status-dot.active  { background: var(--green); }
+    .status-dot.revoked { background: var(--red); }
+    .uni-name { font-size: 14px; font-weight: 600; }
+    .uni-addr { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); word-break: break-all; margin-top: 2px; }
+    .uni-meta { font-size: 11px; color: var(--muted); }
+
+    /* ── Credentials accordion ── */
+    .cred-toggle {
+      background: rgba(96,165,250,.06); border: 1px solid rgba(96,165,250,.15);
+      border-radius: 8px; padding: 6px 12px;
+      font-family: inherit; font-size: 11px; font-weight: 600;
+      color: var(--blue); cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+      transition: all .15s;
+    }
+    .cred-toggle:hover { background: rgba(96,165,250,.12); }
+
+    .cred-list {
+      display: none; margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px;
+    }
+    .cred-list.open { display: block; }
+
+    .cred-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 0; border-bottom: 1px solid rgba(45,49,84,.4);
+      font-size: 12px;
+    }
+    .cred-row:last-child { border-bottom: none; }
+    .cred-id {
+      min-width: 26px; height: 22px; border-radius: 6px;
+      background: var(--s2); font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;
+      color: var(--a2); flex-shrink: 0;
+    }
+    .cred-root { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); flex: 1; word-break: break-all; }
+    .cred-date { color: var(--muted); white-space: nowrap; font-size: 11px; }
+    .tag {
+      font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 99px;
+    }
+    .tag.valid   { background: rgba(34,197,94,.12);  color: var(--green); }
+    .tag.revoked { background: rgba(239,68,68,.12);  color: var(--red); }
+
+    /* ── Circuit cards ── */
+    .circuit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+    .circuit-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 20px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .circuit-name {
+      font-size: 18px; font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--a2);
+    }
+    .circuit-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .circuit-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+    .circuit-size { font-size: 11px; color: var(--muted); }
+
+    /* ── Error box ── */
+    .error-bar {
+      background: rgba(239,68,68,.07); border: 1px solid rgba(239,68,68,.25);
+      border-radius: 9px; padding: 10px 16px; font-size: 12px; color: #ff8080;
+      margin-bottom: 16px; display: none;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-brand">
+    <span style="font-size:22px;">⛓️</span>
+    <div>
+      <div class="brand-name">MicroChain</div>
+      <div class="brand-sub">Public Explorer</div>
+    </div>
+  </div>
+  <div class="nav-links">
+    <a href="verify.html"  class="nav-link">🔍 Verify Proof</a>
+    <a href="index.html"   class="nav-link">⚙️ Admin Panel</a>
+  </div>
+</nav>
+
+<div class="main">
+
+  <!-- RPC config -->
+  <div class="rpc-bar">
+    <div class="dot" id="rpc-dot"></div>
+    <label>RPC:</label>
+    <input id="rpc-url" type="text" value="http://127.0.0.1:8545">
+    <label style="margin-left:12px;">Registry:</label>
+    <input id="registry-addr" type="text" placeholder="0x… (auto)">
+    <label style="margin-left:12px;">Issuer:</label>
+    <input id="issuer-addr"   type="text" placeholder="0x… (auto)">
+    <label style="margin-left:12px;">Circuits:</label>
+    <input id="circuit-addr"  type="text" placeholder="0x… (auto)">
+    <button class="btn-ghost" id="btn-reload" style="margin-left:8px;white-space:nowrap;">↻ Reload</button>
+  </div>
+
+  <div class="error-bar" id="error-bar"></div>
+
+  <div class="page-header">
+    <h1>🌐 Public Blockchain Data</h1>
+    <p>All information displayed here is read directly from the smart contracts — no wallet required.</p>
+  </div>
+
+  <!-- ── Section 1: Universities ── -->
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">
+        <div class="section-icon purple">🏛️</div>
+        Authorized Universities
+        <span class="count-badge" id="uni-count">—</span>
+      </div>
+      <button class="btn-ghost" id="btn-refresh-unis">↻ Refresh</button>
+    </div>
+    <div id="uni-container">
+      <div class="state-box"><div class="state-icon">⏳</div>Loading…</div>
+    </div>
+  </div>
+
+  <!-- ── Section 2: Credentials by university ── -->
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">
+        <div class="section-icon blue">🎓</div>
+        Issued Credentials
+        <span class="count-badge" id="cred-total">—</span>
+      </div>
+      <button class="btn-ghost" id="btn-refresh-creds">↻ Refresh</button>
+    </div>
+    <div id="cred-container">
+      <div class="state-box"><div class="state-icon">⏳</div>Loading…</div>
+    </div>
+  </div>
+
+  <!-- ── Section 3: Verification keys ── -->
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">
+        <div class="section-icon teal">🔑</div>
+        ZKP Verification Keys
+        <span class="count-badge" id="circuit-count">—</span>
+      </div>
+      <button class="btn-ghost" id="btn-refresh-circuits">↻ Refresh</button>
+    </div>
+    <div id="circuit-container">
+      <div class="state-box"><div class="state-icon">⏳</div>Loading…</div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<script>
+
+// ── ABIs ──────────────────────────────────────────────────────────────────
+
+const REGISTRY_ABI = [
+  { "inputs": [], "name": "getAllUniversityAddresses", "outputs": [{ "internalType": "address[]", "name": "", "type": "address[]" }], "stateMutability": "view", "type": "function" },
+  { "inputs": [{ "internalType": "address", "name": "_university", "type": "address" }], "name": "getUniversity", "outputs": [{ "components": [{ "internalType": "string", "name": "name", "type": "string" }, { "internalType": "address", "name": "addr", "type": "address" }, { "internalType": "uint256", "name": "authorizedAt", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }], "internalType": "struct UniversityRegistry.University", "name": "", "type": "tuple" }], "stateMutability": "view", "type": "function" },
+  { "inputs": [], "name": "totalRegisteredUniversities", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }
+];
+
+const ISSUER_ABI = [
+  { "inputs": [{ "internalType": "address", "name": "_issuer", "type": "address" }], "name": "getIssuerCredentials", "outputs": [{ "internalType": "uint256[]", "name": "", "type": "uint256[]" }], "stateMutability": "view", "type": "function" },
+  { "inputs": [{ "internalType": "uint256", "name": "_credentialId", "type": "uint256" }], "name": "getCredential", "outputs": [{ "components": [{ "internalType": "uint256", "name": "credentialId", "type": "uint256" }, { "internalType": "address", "name": "issuer", "type": "address" }, { "internalType": "bytes32", "name": "merkleRoot", "type": "bytes32" }, { "internalType": "uint256", "name": "issuedAt", "type": "uint256" }, { "internalType": "bool", "name": "isRevoked", "type": "bool" }], "internalType": "struct CredentialIssuer.Credential", "name": "", "type": "tuple" }], "stateMutability": "view", "type": "function" },
+  { "inputs": [], "name": "totalCredentials", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }
+];
+
+const CIRCUIT_ABI = [
+  { "inputs": [], "name": "getAllCircuitNames", "outputs": [{ "internalType": "string[]", "name": "", "type": "string[]" }], "stateMutability": "view", "type": "function" },
+  { "inputs": [{ "internalType": "string", "name": "_circuitName", "type": "string" }], "name": "getVerificationKey", "outputs": [{ "internalType": "bytes", "name": "", "type": "bytes" }], "stateMutability": "view", "type": "function" }
+];
+
+// ── DOM helpers ───────────────────────────────────────────────────────────
+
+const $ = id => document.getElementById(id);
+function escapeHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function shortAddr(a) { return a ? `${a.slice(0,6)}…${a.slice(-4)}` : ''; }
+function formatDate(ts) {
+  if (!ts || ts === 0n) return '—';
+  return new Date(Number(ts) * 1000).toLocaleDateString('it-IT', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+const CIRCUIT_DESCS = {
+  grade: 'Proves that the student\'s final grade is at or above a given threshold.',
+  gpa:   'Proves that the student\'s GPA × 100 is at or above a given threshold.',
+  eqf:   'Proves that the degree\'s EQF qualification level meets a minimum.',
+  isced: 'Proves that the degree\'s ISCED field code equals a specific value.',
+};
+
+function showError(msg) {
+  const el = $('error-bar');
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+}
+function hideError() { $('error-bar').style.display = 'none'; }
+
+// ── Config auto-load ──────────────────────────────────────────────────────
+
+async function tryLoadConfig() {
+  try {
+    const res = await fetch('./deploy-config.json');
+    if (!res.ok) return;
+    const cfg = await res.json();
+    if (cfg.UniversityRegistry) $('registry-addr').value = cfg.UniversityRegistry;
+    if (cfg.CredentialIssuer)   $('issuer-addr').value   = cfg.CredentialIssuer;
+    if (cfg.CircuitRegistry)    $('circuit-addr').value  = cfg.CircuitRegistry;
+  } catch { /* manual */ }
+}
+
+// ── Provider factory ──────────────────────────────────────────────────────
+
+function makeProvider() {
+  return new ethers.JsonRpcProvider($('rpc-url').value.trim() || 'http://127.0.0.1:8545');
+}
+
+// ── Section 1: Universities ───────────────────────────────────────────────
+
+async function loadUniversities() {
+  const container = $('uni-container');
+  container.innerHTML = '<div class="state-box"><div class="state-icon">⏳</div>Loading…</div>';
+  $('uni-count').textContent = '—';
+  $('btn-refresh-unis').disabled = true;
+
+  const registryAddr = $('registry-addr').value.trim();
+  if (!registryAddr || !ethers.isAddress(registryAddr)) {
+    container.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div>UniversityRegistry address not set.</div>';
+    $('btn-refresh-unis').disabled = false;
+    return;
+  }
+
+  try {
+    const provider = makeProvider();
+    const registry = new ethers.Contract(registryAddr, REGISTRY_ABI, provider);
+    const addresses = await registry.getAllUniversityAddresses();
+    const unis = await Promise.all(addresses.map(a => registry.getUniversity(a)));
+
+    const active = unis.filter(u => u.isActive).length;
+    $('uni-count').textContent = `${active} active / ${unis.length} total`;
+
+    if (unis.length === 0) {
+      container.innerHTML = '<div class="state-box"><div class="state-icon">🏛️</div>No universities registered yet.</div>';
+      $('btn-refresh-unis').disabled = false;
+      return;
+    }
+
+    const grid = document.createElement('div');
+    grid.className = 'uni-grid';
+
+    unis.forEach((u, i) => {
+      const addr = addresses[i];
+      const card = document.createElement('div');
+      card.className = 'uni-card';
+      card.innerHTML = `
+        <div class="uni-card-head">
+          <div class="status-dot ${u.isActive ? 'active' : 'revoked'}"></div>
+          <div style="flex:1">
+            <div class="uni-name">${escapeHtml(u.name) || '(no name)'}</div>
+            <div class="uni-addr">${addr}</div>
+          </div>
+          <span class="tag ${u.isActive ? 'valid' : 'revoked'}">${u.isActive ? 'Active' : 'Revoked'}</span>
+        </div>
+        <div class="uni-meta">🗓 Authorized ${formatDate(u.authorizedAt)}</div>
+        <div>
+          <button class="cred-toggle" data-addr="${addr}" data-open="false">
+            🎓 <span class="toggle-label">Show credentials</span>
+          </button>
+          <div class="cred-list" id="creds-${addr}">
+            <div style="font-size:12px;color:var(--muted);padding:8px 0;">⏳ Loading credentials…</div>
+          </div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+
+    container.innerHTML = '';
+    container.appendChild(grid);
+
+    // Wire up accordion toggles
+    document.querySelectorAll('.cred-toggle').forEach(btn => {
+      btn.onclick = () => toggleCredentials(btn);
+    });
+
+  } catch (e) {
+    container.innerHTML = `<div class="state-box"><div class="state-icon">❌</div>Error: ${escapeHtml(e.message)}</div>`;
+  } finally {
+    $('btn-refresh-unis').disabled = false;
+  }
+}
+
+// ── Credentials accordion ─────────────────────────────────────────────────
+
+async function toggleCredentials(btn) {
+  const addr = btn.dataset.addr;
+  const isOpen = btn.dataset.open === 'true';
+  const list = $(`creds-${addr}`);
+  const label = btn.querySelector('.toggle-label');
+
+  if (isOpen) {
+    list.classList.remove('open');
+    btn.dataset.open = 'false';
+    label.textContent = 'Show credentials';
+    return;
+  }
+
+  list.classList.add('open');
+  btn.dataset.open = 'true';
+  label.textContent = 'Hide credentials';
+
+  // Only load once
+  if (btn.dataset.loaded === 'true') return;
+  btn.dataset.loaded = 'true';
+
+  const issuerAddr = $('issuer-addr').value.trim();
+  if (!issuerAddr || !ethers.isAddress(issuerAddr)) {
+    list.innerHTML = '<div style="font-size:12px;color:#ff8080;padding:4px 0;">⚠ CredentialIssuer address not set.</div>';
+    return;
+  }
+
+  try {
+    const provider = makeProvider();
+    const issuer = new ethers.Contract(issuerAddr, ISSUER_ABI, provider);
+    const ids = await issuer.getIssuerCredentials(addr);
+
+    if (ids.length === 0) {
+      list.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:4px 0;">No credentials issued yet.</div>';
+      // update toggle label
+      btn.querySelector('.toggle-label').textContent = `Hide credentials (0)`;
+      return;
+    }
+
+    btn.querySelector('.toggle-label').textContent = `Hide credentials (${ids.length})`;
+
+    const creds = await Promise.all(ids.map(id => issuer.getCredential(id)));
+
+    list.innerHTML = '';
+    creds.forEach(c => {
+      const row = document.createElement('div');
+      row.className = 'cred-row';
+      row.innerHTML = `
+        <div class="cred-id">#${c.credentialId}</div>
+        <div class="cred-root" title="${c.merkleRoot}">${c.merkleRoot.slice(0,14)}…${c.merkleRoot.slice(-8)}</div>
+        <div class="cred-date">${formatDate(c.issuedAt)}</div>
+        <span class="tag ${c.isRevoked ? 'revoked' : 'valid'}">${c.isRevoked ? 'Revoked' : 'Valid'}</span>
+      `;
+      list.appendChild(row);
+    });
+
+    // Update total badge
+    updateCredTotal();
+
+  } catch (e) {
+    list.innerHTML = `<div style="font-size:12px;color:#ff8080;padding:4px 0;">Error: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+// ── Section 2: Credential total ───────────────────────────────────────────
+
+async function loadCredentialTotal() {
+  const issuerAddr = $('issuer-addr').value.trim();
+  if (!issuerAddr || !ethers.isAddress(issuerAddr)) return;
+  try {
+    const provider = makeProvider();
+    const issuer = new ethers.Contract(issuerAddr, ISSUER_ABI, provider);
+    const total = await issuer.totalCredentials();
+    $('cred-total').textContent = `${total} total`;
+    $('cred-container').innerHTML = '<div class="state-box"><div class="state-icon">🎓</div>Expand a university above to see their credentials.</div>';
+  } catch { /* ignore */ }
+}
+
+function updateCredTotal() {
+  // Count rendered cred rows across all open accordions
+  const count = document.querySelectorAll('.cred-row').length;
+  if (count > 0) $('cred-total').textContent = `${count} loaded`;
+}
+
+// ── Section 3: Verification keys ─────────────────────────────────────────
+
+async function loadCircuits() {
+  const container = $('circuit-container');
+  container.innerHTML = '<div class="state-box"><div class="state-icon">⏳</div>Loading…</div>';
+  $('circuit-count').textContent = '—';
+  $('btn-refresh-circuits').disabled = true;
+
+  const circuitAddr = $('circuit-addr').value.trim();
+  if (!circuitAddr || !ethers.isAddress(circuitAddr)) {
+    container.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div>CircuitRegistry address not set.</div>';
+    $('btn-refresh-circuits').disabled = false;
+    return;
+  }
+
+  try {
+    const provider = makeProvider();
+    const registry = new ethers.Contract(circuitAddr, CIRCUIT_ABI, provider);
+    const names = await registry.getAllCircuitNames();
+
+    $('circuit-count').textContent = `${names.length} circuit${names.length !== 1 ? 's' : ''}`;
+
+    if (names.length === 0) {
+      container.innerHTML = '<div class="state-box"><div class="state-icon">🔑</div>No verification keys published yet.</div>';
+      $('btn-refresh-circuits').disabled = false;
+      return;
+    }
+
+    // Fetch key sizes (in bytes) in parallel
+    const keys = await Promise.all(names.map(n => registry.getVerificationKey(n)));
+
+    const grid = document.createElement('div');
+    grid.className = 'circuit-grid';
+
+    names.forEach((name, i) => {
+      const keyHex = keys[i];
+      // Size: each hex pair is 1 byte; subtract "0x" prefix
+      const sizeBytes = (keyHex.length - 2) / 2;
+      const sizeKb    = (sizeBytes / 1024).toFixed(1);
+
+      const card = document.createElement('div');
+      card.className = 'circuit-card';
+      card.innerHTML = `
+        <div>
+          <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Circuit</div>
+          <div class="circuit-name">${escapeHtml(name)}</div>
+        </div>
+        <div class="circuit-desc">${escapeHtml(CIRCUIT_DESCS[name] || 'ZoKrates Groth16 circuit on BN128.')}</div>
+        <div class="circuit-footer">
+          <span class="circuit-size">🔑 ${sizeKb} KB · Groth16 BN128</span>
+          <button class="btn-dl" data-name="${escapeHtml(name)}" data-hex="${keyHex}">
+            ⬇ Download key
+          </button>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+
+    container.innerHTML = '';
+    container.appendChild(grid);
+
+    // Wire download buttons
+    document.querySelectorAll('.btn-dl').forEach(btn => {
+      btn.onclick = () => downloadKey(btn.dataset.name, btn.dataset.hex);
+    });
+
+  } catch (e) {
+    container.innerHTML = `<div class="state-box"><div class="state-icon">❌</div>Error: ${escapeHtml(e.message)}</div>`;
+  } finally {
+    $('btn-refresh-circuits').disabled = false;
+  }
+}
+
+function downloadKey(name, hexBytes) {
+  // Decode hex bytes → UTF-8 text → download as .key file
+  const bytes = new Uint8Array((hexBytes.length - 2) / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hexBytes.slice(2 + i * 2, 4 + i * 2), 16);
+  }
+  const text = new TextDecoder().decode(bytes);
+  const blob = new Blob([text], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `verification_${name}.key`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Load all ──────────────────────────────────────────────────────────────
+
+async function loadAll() {
+  hideError();
+  $('rpc-dot').classList.remove('live');
+  try {
+    const provider = makeProvider();
+    await provider.getBlockNumber();
+    $('rpc-dot').classList.add('live');
+  } catch (e) {
+    showError('Cannot connect to RPC at ' + ($('rpc-url').value || 'http://127.0.0.1:8545') + '. Is the Hardhat node running?');
+    return;
+  }
+  await Promise.all([loadUniversities(), loadCredentialTotal(), loadCircuits()]);
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+
+window.addEventListener('DOMContentLoaded', async () => {
+  await tryLoadConfig();
+  await loadAll();
+
+  $('btn-reload').onclick          = loadAll;
+  $('btn-refresh-unis').onclick    = loadUniversities;
+  $('btn-refresh-creds').onclick   = loadCredentialTotal;
+  $('btn-refresh-circuits').onclick = loadCircuits;
+});
+
+</script>
+</body>
+</html>

@@ -2,36 +2,33 @@
 pragma solidity ^0.8.20;
 
 import "./Authority.sol";
-import "./CredentialSchema.sol";
 
 /**
  * @title CredentialIssuer
  * @notice Core contract for issuing academic credentials on-chain.
  *
  * ┌────────────────────────────────────────────────────────────────────┐
- * │  PRIVACY BY DESIGN — WHY WE STORE A COMMITMENT, NOT PLAINTEXT     │
+ * │  PRIVACY BY DESIGN — WHY WE STORE A MERKLE ROOT, NOT PLAINTEXT   │
  * │                                                                    │
- * │  If we stored "Alice Rossi, grade: 110, UniRoma, BSC_CS, 2025"   │
- * │  everyone could read it — zero privacy.                            │
+ * │  The university builds a Merkle tree over the degree's fields     │
+ * │  OFF-CHAIN (using buildJSON.py), producing a 32-byte root.        │
  * │                                                                    │
- * │  Instead, the university computes:                                 │
- * │    commitment = keccak256(abi.encodePacked(                       │
- * │        studentAddress, schemaId, gradeNumerator,                  │
- * │        gradeDenominator, issuanceDate, salt                       │
- * │    ))                                                              │
- * │  … OFF-CHAIN, and submits only the 32-byte commitment.            │
+ * │  Only this root is submitted on-chain — no student address,       │
+ * │  no grade, no personal data. This prevents cross-party data       │
+ * │  correlation: two recruiters cannot link records by student        │
+ * │  address.                                                          │
  * │                                                                    │
- * │  The student keeps their private data (+ the salt).               │
- * │  Later, a ZKP circuit proves properties about that data           │
- * │  without revealing it.                                             │
+ * │  The student keeps their private JSON + salt + Merkle paths.      │
+ * │  A ZKP circuit later proves properties about individual leaves     │
+ * │  without revealing anything else.                                  │
  * └────────────────────────────────────────────────────────────────────┘
  *
  * Key operations:
- *   issueCredential()  — university records a new credential commitment
- *   revokeCredential() — university marks a credential as revoked (fraud, error, …)
+ *   issueCredential()  — university records a new Merkle root on-chain
+ *   revokeCredential() — university marks a credential as revoked
  *
  * Access control:
- *   - Only addresses authorized in UniversityRegistry may issue/revoke credentials.
+ *   - Only addresses authorized in UniversityRegistry may issue/revoke.
  *   - A credential can only be revoked by the university that issued it.
  *   - Read functions are public.
  */
@@ -41,23 +38,19 @@ contract CredentialIssuer {
     // ─────────────────────────────────────────────
 
     /**
-     * @notice Represents a credential issued to a student.
+     * @notice Represents a credential issued by a university.
      *
      * Fields:
      *   credentialId  — unique auto-incremented ID
      *   issuer        — university address that issued this credential
-     *   student       — student's Ethereum address (their DID / wallet)
-     *   schemaId      — references CredentialSchema for the credential type
-     *   commitment    — keccak256 hash of the private credential data
+     *   merkleRoot    — root of the Merkle tree built from the degree JSON
      *   issuedAt      — block timestamp of issuance
      *   isRevoked     — true after the issuer revokes this credential
      */
     struct Credential {
         uint256 credentialId;
         address issuer;
-        address student;
-        uint256 schemaId;
-        bytes32 commitment;
+        bytes32 merkleRoot;
         uint256 issuedAt;
         bool isRevoked;
     }
@@ -67,21 +60,17 @@ contract CredentialIssuer {
     // ─────────────────────────────────────────────
 
     UniversityRegistry public immutable registry;
-    CredentialSchema public immutable schemaRegistry;
 
     uint256 private _nextCredentialId;
 
     /// @notice All credentials by ID
     mapping(uint256 => Credential) private _credentials;
 
-    /// @notice Prevent the same commitment being registered twice
-    mapping(bytes32 => bool) public commitmentUsed;
+    /// @notice Prevent the same Merkle root being registered twice
+    mapping(bytes32 => bool) public merkleRootUsed;
 
-    /// @notice credentialId → true once revoked (redundant with Credential.isRevoked but cheaper to read)
+    /// @notice credentialId → true once revoked
     mapping(uint256 => bool) public isRevoked;
-
-    /// @notice List of credential IDs belonging to each student address
-    mapping(address => uint256[]) private _studentCredentials;
 
     /// @notice List of credential IDs issued by each university address
     mapping(address => uint256[]) private _issuerCredentials;
@@ -94,17 +83,13 @@ contract CredentialIssuer {
      * @notice Emitted when a new credential is issued.
      * @param credentialId  Unique ID of this credential.
      * @param issuer        University that issued it.
-     * @param student       Recipient student.
-     * @param schemaId      Credential type schema ID.
-     * @param commitment    keccak256 commitment hash of the private data.
+     * @param merkleRoot    Merkle root of the off-chain degree JSON.
      * @param timestamp     Block timestamp of issuance.
      */
     event CredentialIssued(
         uint256 indexed credentialId,
         address indexed issuer,
-        address indexed student,
-        uint256 schemaId,
-        bytes32 commitment,
+        bytes32 merkleRoot,
         uint256 timestamp
     );
 
@@ -137,15 +122,11 @@ contract CredentialIssuer {
     // ─────────────────────────────────────────────
 
     /**
-     * @param _registry        Address of the deployed UniversityRegistry contract.
-     * @param _schemaRegistry  Address of the deployed CredentialSchema contract.
+     * @param _registry  Address of the deployed UniversityRegistry contract.
      */
-    constructor(address _registry, address _schemaRegistry) {
+    constructor(address _registry) {
         require(_registry != address(0), "Issuer: zero registry address");
-        require(_schemaRegistry != address(0), "Issuer: zero schema address");
-
         registry = UniversityRegistry(_registry);
-        schemaRegistry = CredentialSchema(_schemaRegistry);
         _nextCredentialId = 1;
     }
 
@@ -154,39 +135,29 @@ contract CredentialIssuer {
     // ─────────────────────────────────────────────
 
     /**
-     * @notice Issue a new credential to a student.
+     * @notice Issue a new credential by publishing its Merkle root on-chain.
      *
-     * HOW TO COMPUTE THE COMMITMENT (off-chain, e.g. in ethers.js):
-     *   const commitment = ethers.utils.solidityKeccak256(
-     *       ["address", "uint256", "uint8", "uint8", "uint256", "bytes32"],
-     *       [studentAddr, schemaId, gradeNum, gradeDen, issuanceDateUnix, salt]
-     *   );
+     * HOW TO COMPUTE THE MERKLE ROOT (off-chain, using buildJSON.py):
+     *   python3 buildJSON.py degree.json
+     *   → writes degree_MERKLE.json containing merkleTree.root
      *
-     * @param _student     Ethereum address of the student recipient.
-     * @param _schemaId    ID of the credential schema (must be active).
-     * @param _commitment  keccak256 hash of the full private credential data.
+     * Submit that root here. No student address or personal data is stored.
+     *
+     * @param _merkleRoot  Root of the Merkle tree built from the degree JSON.
      * @return credentialId  The unique ID assigned to this credential.
      *
      * Requirements:
      * - Caller must be an authorized university.
-     * - `_student` must not be the zero address.
-     * - `_schemaId` must reference an active schema.
-     * - `_commitment` must not have been used before (prevents duplicates).
+     * - `_merkleRoot` must not be zero.
+     * - `_merkleRoot` must not have been used before (prevents duplicates).
      */
     function issueCredential(
-        address _student,
-        uint256 _schemaId,
-        bytes32 _commitment
+        bytes32 _merkleRoot
     ) external onlyAuthorizedUniversity returns (uint256 credentialId) {
-        require(_student != address(0), "Issuer: zero student address");
-        require(_commitment != bytes32(0), "Issuer: empty commitment");
+        require(_merkleRoot != bytes32(0), "Issuer: empty Merkle root");
         require(
-            !commitmentUsed[_commitment],
-            "Issuer: commitment already used"
-        );
-        require(
-            schemaRegistry.isActiveSchema(_schemaId),
-            "Issuer: schema not active"
+            !merkleRootUsed[_merkleRoot],
+            "Issuer: Merkle root already used"
         );
 
         credentialId = _nextCredentialId++;
@@ -194,23 +165,18 @@ contract CredentialIssuer {
         _credentials[credentialId] = Credential({
             credentialId: credentialId,
             issuer: msg.sender,
-            student: _student,
-            schemaId: _schemaId,
-            commitment: _commitment,
+            merkleRoot: _merkleRoot,
             issuedAt: block.timestamp,
             isRevoked: false
         });
 
-        commitmentUsed[_commitment] = true;
-        _studentCredentials[_student].push(credentialId);
+        merkleRootUsed[_merkleRoot] = true;
         _issuerCredentials[msg.sender].push(credentialId);
 
         emit CredentialIssued(
             credentialId,
             msg.sender,
-            _student,
-            _schemaId,
-            _commitment,
+            _merkleRoot,
             block.timestamp
         );
     }
@@ -218,7 +184,6 @@ contract CredentialIssuer {
     /**
      * @notice Revoke a previously issued credential.
      *         Use cases: discovered fraud, data entry error, accreditation withdrawal.
-     *         Revoked credentials will fail ZKP verification checks.
      *
      * @param _credentialId  ID of the credential to revoke.
      *
@@ -257,16 +222,15 @@ contract CredentialIssuer {
     }
 
     /**
-     * @notice Get the commitment stored for a given credential ID.
-     *         Used by CredentialVerifier to look up the commitment before
-     *         running ZKP verification.
+     * @notice Get the Merkle root stored for a given credential ID.
+     *         Used by off-chain verifiers to check the root against a proof.
      * @param _credentialId  ID to look up.
-     * @return commitment  32-byte commitment hash, bytes32(0) if credential doesn't exist.
+     * @return merkleRoot  32-byte root, bytes32(0) if credential doesn't exist.
      */
-    function getCommitment(
+    function getMerkleRoot(
         uint256 _credentialId
     ) external view returns (bytes32) {
-        return _credentials[_credentialId].commitment;
+        return _credentials[_credentialId].merkleRoot;
     }
 
     /**
@@ -279,17 +243,6 @@ contract CredentialIssuer {
     ) external view returns (bool) {
         Credential storage cred = _credentials[_credentialId];
         return cred.credentialId != 0 && !cred.isRevoked;
-    }
-
-    /**
-     * @notice Get all credential IDs issued to a specific student.
-     * @param _student  Student address.
-     * @return Array of credential IDs.
-     */
-    function getStudentCredentials(
-        address _student
-    ) external view returns (uint256[] memory) {
-        return _studentCredentials[_student];
     }
 
     /**
