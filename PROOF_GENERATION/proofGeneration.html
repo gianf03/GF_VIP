@@ -222,13 +222,13 @@
     }
 
     // Annulla: ferma animazione, cleanup, reset form
-    document.getElementById('cancelBtn').addEventListener('click', function() {
+    /*document.getElementById('cancelBtn').addEventListener('click', function() {
       if (abortController) abortController.abort();
       stopLoadingAnimation();
       cleanup(currentClaim).finally(function() {
         resetForm();
       });
-    });
+    });*/
 
     // Submit via fetch
     document.getElementById('proofForm').addEventListener('submit', function(e) {

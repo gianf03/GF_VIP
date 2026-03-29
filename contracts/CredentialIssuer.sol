@@ -8,17 +8,17 @@ import "./Authority.sol";
  * @notice Core contract for issuing academic credentials on-chain.
  *
  * ┌────────────────────────────────────────────────────────────────────┐
- * │  PRIVACY BY DESIGN — WHY WE STORE A MERKLE ROOT, NOT PLAINTEXT   │
+ * │  PRIVACY BY DESIGN — WHY WE STORE A MERKLE ROOT, NOT PLAINTEXT     │
  * │                                                                    │
- * │  The university builds a Merkle tree over the degree's fields     │
- * │  OFF-CHAIN (using buildJSON.py), producing a 32-byte root.        │
+ * │  The university builds a Merkle tree over the degree's fields      │
+ * │  OFF-CHAIN (using buildJSON.py), producing a 32-byte root.         │
  * │                                                                    │
- * │  Only this root is submitted on-chain — no student address,       │
- * │  no grade, no personal data. This prevents cross-party data       │
+ * │  Only this root is submitted on-chain — no student address,        │
+ * │  no grade, no personal data. This prevents cross-party data        │
  * │  correlation: two recruiters cannot link records by student        │
  * │  address.                                                          │
  * │                                                                    │
- * │  The student keeps their private JSON + salt + Merkle paths.      │
+ * │  The student keeps their private JSON + salt + Merkle paths.       │
  * │  A ZKP circuit later proves properties about individual leaves     │
  * │  without revealing anything else.                                  │
  * └────────────────────────────────────────────────────────────────────┘
